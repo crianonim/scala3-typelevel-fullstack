@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ScalaCompilerConfiguration">
+    <profile name="sbt 1" modules="scala3-typelevel-fullstack,scala3-typelevel-fullstack.common.coreJVM,scala3-typelevel-fullstack.server,scala3-typelevel-fullstack_7120" />
+    <profile name="sbt 2" modules="scala3-typelevel-fullstack.app">
+      <parameters>
+        <parameter value="-scalajs" />
+        <parameter value="-Xsemanticdb" />
+        <parameter value="-semanticdb-target" />
+        <parameter value="$PROJECT_DIR$/app/target/scala-3.3.1/meta" />
+      </parameters>
+    </profile>
+    <profile name="sbt 3" modules="scala3-typelevel-fullstack.common.coreJS">
+      <parameters>
+        <parameter value="-scalajs" />
+      </parameters>
+    </profile>
+  </component>
+</project>

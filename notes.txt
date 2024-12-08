@@ -1,0 +1,8 @@
+docker exec -it db-db-1 psql -U docker
+
+SQL gets table
+
+select * from information_schema.tables WHERE table_type ='BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema');
+
+psql specific
+select * from pg_catalog.pg_tables where schemaname='public';
