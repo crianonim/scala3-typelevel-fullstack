@@ -1,4 +1,4 @@
-ThisBuild / version := "1.0.0"
+ThisBuild / version := "1.0.1"
 
 lazy val org    = "com.crianonim"
 lazy val scala3Version = "3.4.1"
@@ -58,6 +58,14 @@ lazy val slf4jVersion               = "2.0.0"
 lazy val javaMailVersion            = "1.6.2"
 lazy val stripeVersion              = "22.12.0"
 
+
+ThisBuild / assemblyMergeStrategy := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x =>
+    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+    oldStrategy(x)
+}
+
 lazy val server = (project in file("server"))
   .settings(
     name         := "server",
@@ -87,6 +95,9 @@ lazy val server = (project in file("server"))
       "org.testcontainers" % "postgresql"                    % testContainerVersion       % Test,
       "ch.qos.logback"     % "logback-classic"               % logbackVersion             % Test
     ),
-    Compile / mainClass := Some("com.crianonim.tables.Application")
+    Compile / mainClass := Some("com.crianonim.tables.Application"),
+    assembly / mainClass := Some("com.crianonim.tables.Application"),
+
+  ).settings(
   )
   .dependsOn(core.jvm)
