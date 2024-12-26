@@ -35,7 +35,7 @@ object Application extends IOApp.Simple {
     server <- EmberServerBuilder
       .default[IO]
       .withHost(host"0.0.0.0")
-      .withPort(port"4041")
+      .withPort(port"8080")
       .withHttpApp(corsPolicy
         ((tablesApi.routes <+> web).orNotFound))
       .build

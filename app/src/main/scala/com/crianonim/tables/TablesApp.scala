@@ -22,11 +22,11 @@ object TablesApp  {
   case class Model(jobs: Either[String,List[TableColumns] ]= Right(List()))
   def backendCall: Cmd[IO, Msg] =
     Http.send(
-      Request.get("http://localhost:4041/tables"),
+      Request.get("/tables"),
       Decoder[Msg](
         resp =>
           parse(resp.body).flatMap(_.as[List[TableColumns]]) match {
-            case Left(e)     => Msg.LoadJobs(Left(e.getMessage()))
+            case Left(e)     => Msg.LoadJobs(Left(e.getMessage))
             case Right(list) => Msg.LoadJobs(Right(list))
           },
         err => Msg.LoadJobs(Left(err.toString))
