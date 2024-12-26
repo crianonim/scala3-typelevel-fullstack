@@ -1,13 +1,16 @@
 package com.crianonim.tables
 
 import cats.effect.*
+import cats.implicits.*
 import doobie.util.ExecutionContexts
 import doobie.hikari.HikariTransactor
 import com.comcast.ip4s.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.middleware.{CORS, CORSPolicy}
+import org.http4s.server.staticcontent.*
 import com.crianonim.tables.core.*
 import com.crianonim.tables.http.*
+import org.http4s.HttpRoutes
 
 object Application extends IOApp.Simple {
   def makePostgres = for {
@@ -20,6 +23,7 @@ object Application extends IOApp.Simple {
       ec
     )
   } yield transactor
+  val web: HttpRoutes[IO] = fileService(FileService.Config("./app/dist"))
   val corsPolicy: CORSPolicy =CORS.policy
     .withAllowOriginAll
     .withAllowCredentials(false)
@@ -27,12 +31,13 @@ object Application extends IOApp.Simple {
     postgres <- makePostgres
     tables     <- TablesLive.resource[IO](postgres)
     tablesApi   <- TablesRoutes.resource[IO](tables)
+    
     server <- EmberServerBuilder
       .default[IO]
       .withHost(host"0.0.0.0")
       .withPort(port"4041")
       .withHttpApp(corsPolicy
-        (tablesApi.routes.orNotFound))
+        ((tablesApi.routes <+> web).orNotFound))
       .build
   } yield server
 
