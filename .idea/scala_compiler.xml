@@ -24,7 +24,7 @@
         <parameter value="-Xfatal-warnings" />
         <parameter value="-Xsemanticdb" />
         <parameter value="-semanticdb-target" />
-        <parameter value="$PROJECT_DIR$/app/target/scala-3.4.1/meta" />
+        <parameter value="$PROJECT_DIR$/app/target/scala-3.4.3/meta" />
       </parameters>
     </profile>
     <profile name="sbt 3" modules="scala3-typelevel-fullstack.common.coreJS">

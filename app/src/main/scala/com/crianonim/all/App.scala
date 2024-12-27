@@ -3,20 +3,22 @@ package com.crianonim.all
 import scala.scalajs.js
 import scala.scalajs.js.annotation.*
 import cats.effect.*
-import com.crianonim.all.Msg.UpdateTablesApp
 import tyrian.*
 import tyrian.Html.*
 //import io.circe.syntax.*
 import com.crianonim.tables.TablesApp
+import com.crianonim.dnd.DiceRoll
 enum Msg {
   case NoMsg
   case NavigateTo(nav:Page)
   case UpdateTablesApp(tMsg: TablesApp.Msg)
+  case UpdateDiceRollApp(tMsg: DiceRoll.Msg)
 }
 
 case class Model(
                   page:Page,
-                  tables: TablesApp.Model
+                  tables: TablesApp.Model,
+                  diceRoll: DiceRoll.Model
                 )
 
 @JSExportTopLevel("AllApp")
@@ -27,22 +29,27 @@ object App extends TyrianIOApp[Msg, Model] {
       loc.pathName match
         case "/" => Msg.NavigateTo(Page.MainPage)
         case "/tables" => Msg.NavigateTo(Page.TablesPage)
+        case "/roll" => Msg.NavigateTo(Page.DiceRollPage)
         case _ => Msg.NoMsg
     case loc: Location.External =>
       Msg.NoMsg
 
   override def init(flags: Map[String, String]): (Model, Cmd[IO, Msg]) =
     val tablesModel = TablesApp.initEmpty
-    (Model(Page.MainPage,tablesModel), Cmd.None)
+    val diceRollModel = DiceRoll.init
+
+    (Model(Page.MainPage,tablesModel,diceRollModel),Cmd.None)
 
   override def view(model:Model): Html[Msg]=
     div(cls:="flex flex-col gap-2 p-10")(
       div(cls:="flex gap-4")(
-        a(href:="/")("Main"),
+        a(href:="/")("Mains"),
         a(href:="/tables")("Tables"),
+        a(href:="/roll")("Roll"),
       ), model.page match {
     case Page.MainPage => div()("APP")
-    case Page.TablesPage => TablesApp.view(model.tables).map(UpdateTablesApp.apply)
+    case Page.TablesPage => TablesApp.view(model.tables).map(Msg.UpdateTablesApp.apply)
+    case Page.DiceRollPage => DiceRoll.view(model.diceRoll).map(Msg.UpdateDiceRollApp.apply)
   })
 
 
@@ -53,6 +60,9 @@ object App extends TyrianIOApp[Msg, Model] {
       (model.copy(tables = tablesModel), tablesCmd.map(Msg.UpdateTablesApp.apply))
     case Msg.NavigateTo(page) => 
       (model.copy(page=page),Cmd.None)
+    case Msg.UpdateDiceRollApp(drMsg) =>
+      val (drModel,drCmd) = DiceRoll.update(model.diceRoll)(drMsg)
+      (model.copy(diceRoll = drModel), drCmd.map(Msg.UpdateDiceRollApp.apply))
   }
 
   override def subscriptions(model: Model): Sub[IO, Msg] =
@@ -60,4 +70,4 @@ object App extends TyrianIOApp[Msg, Model] {
 }
 
 enum Page:
-  case MainPage, TablesPage
+  case MainPage, TablesPage, DiceRollPage

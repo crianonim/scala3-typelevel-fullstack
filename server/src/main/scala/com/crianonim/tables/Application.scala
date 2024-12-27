@@ -13,7 +13,7 @@ import com.crianonim.tables.http.*
 import org.http4s.HttpRoutes
 
 object Application extends IOApp.Simple {
-  def makePostgres = for {
+  def makePostgres: Resource[IO, HikariTransactor[IO]] = for {
     ec <- ExecutionContexts.fixedThreadPool[IO](32)
     transactor <- HikariTransactor.newHikariTransactor[IO](
       "org.postgresql.Driver",
@@ -31,7 +31,7 @@ object Application extends IOApp.Simple {
     postgres <- makePostgres
     tables     <- TablesLive.resource[IO](postgres)
     tablesApi   <- TablesRoutes.resource[IO](tables)
-    
+
     server <- EmberServerBuilder
       .default[IO]
       .withHost(host"0.0.0.0")

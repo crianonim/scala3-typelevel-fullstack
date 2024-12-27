@@ -1,7 +1,7 @@
 ThisBuild / version := "1.0.1"
 
 lazy val org    = "com.crianonim"
-lazy val scala3Version = "3.4.1"
+lazy val scala3Version = "3.4.3"
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Common - contains domain model
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -10,7 +10,14 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
   .settings(
     name         := "common",
     scalaVersion := scala3Version,
-    organization := org
+    organization := org,
+    libraryDependencies ++= Seq(
+      "io.circe"        %%% "circe-core"    % circeVersion,
+      "io.circe"        %%% "circe-parser"  % circeVersion,
+      "io.circe"        %%% "circe-generic" % circeVersion,
+      "com.lihaoyi" %%% "fastparse" % "3.1.1",
+      "org.typelevel"         %%% "cats-effect"         % catsEffectVersion,
+    ),
   )
   .jvmSettings(
     // add here if necessary
