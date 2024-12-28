@@ -10,20 +10,22 @@ import com.crianonim.ui.*
 import com.crianonim.roll.{Roll,RollDef, RollResult,DiceRoll as DR}
 
 object DiceRoll {
-  case class Model(result: RollResult,diceInput: String, facesInput: String )
+  case class Model(result: RollResult,diceInput: String, facesInput: String, modInput: String )
 
   enum Msg {
     case ClickRoll
     case GotResult(r:RollResult)
     case UpdateFacesInput(s:String)
     case UpdateDiceInput(s: String)
+    case UpdateModInput(s: String)
   }
-  def init : Model = Model( RollResult(List.empty,0),"3","6" )
+  def init : Model = Model( RollResult(List.empty,0),"3","6" ,"0")
 
   def getRollDef(model: Model): RollDef =
     val dice = model.diceInput.toInt
     val faces = model.facesInput.toInt
-    RollDef(DR(dice, faces), None)
+    val modOpt = model.modInput.toIntOption.flatMap(x=>if x == 0 then None else Some(x))
+    RollDef(DR(dice, faces), modOpt )
 
   def rollCmd(model: Model):Cmd[IO,Msg] = {
 
@@ -43,6 +45,8 @@ object DiceRoll {
       (model.copy(diceInput = s),Cmd.None)
     case Msg.UpdateFacesInput(s: String) =>
       (model.copy(facesInput = s), Cmd.None)
+    case Msg.UpdateModInput(s: String) =>
+      (model.copy(modInput = s), Cmd.None)
   }
 
   def viewDie(r:Int): Html[Msg] =
@@ -64,6 +68,7 @@ object DiceRoll {
           Button.interactive("d20", Msg.UpdateFacesInput("20")),
           Button.interactive("d100", Msg.UpdateFacesInput("100")),
         ),
+        Input.interactive(model.modInput,Msg.UpdateModInput.apply,"number"),
 
       ),
       Button.interactive( (getRollDef(model).show)++" Roll ",Msg.ClickRoll),
