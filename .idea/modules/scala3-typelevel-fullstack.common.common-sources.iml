@@ -35,8 +35,8 @@
   <component name="SharedSourcesOwnerModules">
     <option name="ownersModuleNames">
       <list>
-        <option value="scala3-typelevel-fullstack.common.coreJVM" />
         <option value="scala3-typelevel-fullstack.common.coreJS" />
+        <option value="scala3-typelevel-fullstack.common.coreJVM" />
       </list>
     </option>
   </component>
