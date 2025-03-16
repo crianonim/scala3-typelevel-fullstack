@@ -4,6 +4,8 @@ import cats.implicits.showInterpolator
 import cats.syntax.all.*
 import com.crianonim.timelines
 
+import java.time.LocalDate
+
 
 
 sealed trait Period
@@ -45,13 +47,19 @@ object TimePoint {
       case YearMonth(year, month) => year.toString ++ "-"++ month.toString.padTo(2,'0').reverse
       case YearMonthDay(year, month, day) => year.toString ++ "-" ++ month.toString.padTo(2,'0').reverse ++ "-" ++ day.toString.padTo(2,'0').reverse
 
-//  def timePointFloorDate(t:TimePoint): String =
-//    t match
-//      case YearOnly(year) =>
-//      case YearMonth(year, month) => ???
-//      case YearMonthDay(year, month, day) => ???
-//  //  given Ordering[TimePoint] = new Ordering[TimePoint]:
-////    override def compare(x: TimePoint, y: TimePoint): Int = ???
+  def timePointFloorDate(t:TimePoint): LocalDate =
+    t match
+      case YearOnly(year) => LocalDate.of(year,1,1)
+      case YearMonth(year, month) => LocalDate.of(year,month,1)
+      case YearMonthDay(year, month, day) => LocalDate.of(year,month,day)
+
+  def  timePointCeilDate(t:TimePoint): LocalDate =
+    t match
+      case YearOnly(year) => LocalDate.of(year,12,31)
+      case YearMonth(year, month) => LocalDate.of(year,month,1).plusMonths(1).minusDays(1)
+      case YearMonthDay(year, month, day) => LocalDate.of(year,month,day)
+
+
 }
 
 case class YearOnly(year: Int) extends TimePoint
@@ -74,7 +82,26 @@ object Timeline {
     examples.foreach(
       tl=> println(show"${tl.period}")
     )
+    val yo=YearOnly(2010)
+    println(TimePoint.timePointFloorDate(yo))
+    println(TimePoint.timePointCeilDate(yo))
+    val ym= YearMonth(2005,12)
+    println(TimePoint.timePointFloorDate(ym))
+    println(TimePoint.timePointCeilDate(ym))
+    val ymd = YearMonthDay(1980,8,6)
+    println(TimePoint.timePointFloorDate(ymd))
+    println(TimePoint.timePointCeilDate(ymd))
+    val mins = examples.map(x=>Period.minTimePointOfPeriod(x.period))
+    println(mins.show)
+    val floors = mins.map(TimePoint.timePointFloorDate)
+    println(floors)
+    println(floors.min)
+    println(examples.flatMap(
+      x=>Period.maxTimePointOfPeriod(x.period))
+      .map(TimePoint.timePointCeilDate)
+      .max
 
+    )
   }
 }
 
