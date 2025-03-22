@@ -17,6 +17,7 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
       "io.circe"        %%% "circe-generic" % circeVersion,
       "com.lihaoyi" %%% "fastparse" % "3.1.1",
       "org.typelevel"         %%% "cats-effect"         % catsEffectVersion,
+      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0",
     ),
   )
   .jvmSettings(
