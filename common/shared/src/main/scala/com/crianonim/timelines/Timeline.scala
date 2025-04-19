@@ -18,7 +18,17 @@ object Period {
       case Closed(start, end) => show"${start} >> ${end}"
       case Started(start) => show"${start} >> ..."
 
-
+//  // create an Ordering instance for Period
+//    given Ordering[Period] = new Ordering[Period] {
+//        override def compare(x: Period, y: Period): Int = (x, y) match
+//        case (Point(x), Point(y)) => x.toString.compare(y.toString)
+//        case (Closed(x1, x2), Closed(y1, y2)) => (x1, x2).compare(y1, y2)
+//        case (Started(x), Started(y)) => x.compare(y)
+//        case (Point(_), _) => -1
+//        case (_, Point(_)) => 1
+//        case (Closed(_, _), _) => -1
+//        case (_, Closed(_, _)) => 1
+//    }
   def minTimePointOfPeriod(p:Period): TimePoint = p match
     case Point(point) => point
     case Closed(start, end) => start
