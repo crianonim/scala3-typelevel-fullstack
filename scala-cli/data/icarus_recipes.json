@@ -1,0 +1,32 @@
+[
+  {
+    "recipeWorkbench": "Machining Bench",
+    "ingredients": [
+      {
+        "amount": 30,
+        "materialName": "Refined Wood",
+        "imgSrc": "https://static.wikia.nocookie.net/icarus/images/1/14/ITEM_Refined_Wood.png/revision/latest/scale-to-width-down/25?cb=20210916210129"
+      },
+      {
+        "amount": 20,
+        "materialName": "Epoxy",
+        "imgSrc": "https://static.wikia.nocookie.net/icarus/images/8/8c/ITEM_Epoxy.png/revision/latest/scale-to-width-down/25?cb=20230901091845"
+      },
+      {
+        "amount": 4,
+        "materialName": "Copper Nail",
+        "imgSrc": "https://static.wikia.nocookie.net/icarus/images/6/6b/ITEM_Copper_Nail.png/revision/latest/scale-to-width-down/25?cb=20211110183801"
+      },
+      {
+        "amount": 24,
+        "materialName": "Steel Ingot",
+        "imgSrc": "https://static.wikia.nocookie.net/icarus/images/9/93/ITEM_Steel_Ingot.png/revision/latest/scale-to-width-down/25?cb=20211223230253"
+      },
+      {
+        "amount": 8,
+        "materialName": "Steel Screw",
+        "imgSrc": "https://static.wikia.nocookie.net/icarus/images/9/9a/ITEM_Steel_Screw.png/revision/latest/scale-to-width-down/25?cb=20211110185552"
+      }
+    ]
+  }
+]
