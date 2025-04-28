@@ -14,16 +14,17 @@ import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
 import sttp.tapir.json.circe.*
 
-
 object HelloWorldTapir extends IOApp:
-  
+
   val helloWorldEndpoint = endpoint.get
     .in("hello" / "world")
     .in(query[String]("name"))
     .out(stringBody)
-    .serverLogic[IO](name => IO
-      .println(s"Saying hello to: $name")
-      .flatMap(_ => IO.pure(Right(s"Hello, $name!"))))
+    .serverLogic[IO](name =>
+      IO
+        .println(s"Saying hello to: $name")
+        .flatMap(_ => IO.pure(Right(s"Hello, $name!")))
+    )
 
   val calculationEndpoint = endpoint.get
     .in("calculate" / "sum")
@@ -40,9 +41,9 @@ object HelloWorldTapir extends IOApp:
   val calculationRoutes: HttpRoutes[IO] = Http4sServerInterpreter[IO]()
     .toRoutes(calculationEndpoint)
 
-    // This is the endpoint that will be used to generate the Swagger documentation
-    // if fromServerEndpoints requires an effect type (or Identity)
-    val swaggerEndpoints = SwaggerInterpreter()
+  // This is the endpoint that will be used to generate the Swagger documentation
+  // if fromServerEndpoints requires an effect type (or Identity)
+  val swaggerEndpoints = SwaggerInterpreter()
     .fromServerEndpoints[IO](List(helloWorldEndpoint, calculationEndpoint), "My App", "1.0")
 
   val swaggerRoutes: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(swaggerEndpoints)
