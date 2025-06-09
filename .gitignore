@@ -170,3 +170,6 @@ app/dist-staging
 
 # Scala-cli
 .scala-build/
+
+metals.sbt
+
