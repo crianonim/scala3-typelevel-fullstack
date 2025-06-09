@@ -167,3 +167,6 @@ app/dist-prod
 app/dist-staging
 
 **/.DS_Store
+
+# Scala-cli
+.scala-build/
