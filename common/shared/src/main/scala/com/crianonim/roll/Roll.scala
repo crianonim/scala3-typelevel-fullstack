@@ -18,6 +18,7 @@ trait Roll[F[_]] {
 
   def eval(rollResult: RollResult): Int = rollResult.rolls.sum + rollResult.mod
 
+  def parseAndRoll(s: String): F[RollResult]
   def parseAndEval(s: String): F[Int]
 
   def rollDie(diceFaces: Int): F[Int]
@@ -33,7 +34,7 @@ object DiceRoll {
 case class RollDef(dice: DiceRoll, mod: Option[Int])
 
 object RollDef {
-  implicit val decoder: Decoder[RollDef] = Decoder.decodeString.emap(i => parsedRollDef(i).fold((_, _, _) => Left("Failed"), (r, _) => Right(r)))
+implicit val decoder: Decoder[RollDef] = Decoder.decodeString.emap(i => parsedRollDef(i).fold((_, _, _) => Left("Failed"), (r, _) => Right(r)))
   implicit val encoder: Encoder[RollDef] = new Encoder[RollDef] {
     final def apply(a: RollDef): Json = Json.fromString(showImpl.show(a))
   }
@@ -46,6 +47,8 @@ object Roll {
   
   
   def forCats[F[_] : Applicative : Random]: Roll[F] = new Roll[F] {
+    override def parseAndRoll(s: String): F[RollResult] = roll(parseRollDef(s))
+
     override def parseAndEval(s: String): F[Int] = roll(parseRollDef(s)).map(eval)
 
 
@@ -81,8 +84,9 @@ object Roll {
   def parsedRollDef(s: String): Parsed[RollDef] = parse(s, rollDef(using _)) :  @unchecked
 
   def forUnsafe[F[_] : Applicative]: Roll[F] = new Roll[F] {
-    override def parseAndEval(s: String): F[Int] =
-      roll(parseRollDef(s)).map(eval)
+  override def parseAndRoll(s: String): F[RollResult] = roll(parseRollDef(s))
+
+  override def parseAndEval(s: String): F[Int] = roll(parseRollDef(s)).map(eval)
 
 
     override def rollDie(diceFaces: Int): F[Int] = between(1, diceFaces).pure[F]
@@ -118,5 +122,6 @@ object TestRollUnsafe extends App {
   private val impl = Roll.forUnsafe[Id]
   //  val rollDefStats = rollDefStat(parseRollDef("2d5+4"))
   impl.parseAndEval("2d5+4").flatMap(println)
+  impl.parseAndRoll("2d6").flatMap(println)
 
 }
