@@ -6,3 +6,18 @@ select * from information_schema.tables WHERE table_type ='BASE TABLE' AND table
 
 psql specific
 select * from pg_catalog.pg_tables where schemaname='public';
+
+
+---
+To run the app (without docker) and develop
+in sbt (in root):
+> ~app / fastOptJS
+
+in separate terminal go to app folder
+and in bash:
+
+npm run start
+
+
+and to run server:
+sbt "server / run"

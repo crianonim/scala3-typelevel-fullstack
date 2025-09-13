@@ -34,7 +34,7 @@ object RandomTable {
 }
 
 object TestRandomTable extends App {
-  import com.crianonim.roll._
+  // import com.crianonim.roll._
 
   val roll = Roll.forUnsafe[Id]
 
@@ -206,8 +206,8 @@ object TestRandomTable extends App {
   )
   println(profession)
 
-  val xxx           = d6.d66 _
-  val kinTableReady = RandomTableReady(kinTable, d6.d66 _)
-  println(kinTableReady)
+  // val xxx           = d6.d66 _
+  // val kinTableReady = RandomTableReady(kinTable, d6.d66 _)
+  // println(kinTableReady)
 
 }

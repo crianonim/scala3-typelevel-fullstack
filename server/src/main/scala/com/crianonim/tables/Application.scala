@@ -8,8 +8,8 @@ import com.comcast.ip4s.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.middleware.{CORS, CORSPolicy}
 import org.http4s.server.staticcontent.*
-import com.crianonim.tables.core.*
-import com.crianonim.tables.http.*
+// import com.crianonim.tables.core.*
+// import com.crianonim.tables.http.*
 import org.http4s.HttpRoutes
 
 object Application extends IOApp.Simple {
@@ -24,23 +24,23 @@ object Application extends IOApp.Simple {
     )
   } yield transactor
   val web: HttpRoutes[IO] = fileService(FileService.Config("./app/dist"))
-  val corsPolicy: CORSPolicy =CORS.policy
-    .withAllowOriginAll
+  val corsPolicy: CORSPolicy = CORS.policy.withAllowOriginAll
     .withAllowCredentials(false)
   def makeServer = for {
-    postgres <- makePostgres
-    tables     <- TablesLive.resource[IO](postgres)
-    tablesApi   <- TablesRoutes.resource[IO](tables)
+    // postgres  <- makePostgres
+    // tables    <- TablesLive.resource[IO](postgres)
+    // tablesApi <- TablesRoutes.resource[IO](tables)
 
     server <- EmberServerBuilder
       .default[IO]
       .withHost(host"0.0.0.0")
       .withPort(port"8080")
-      .withHttpApp(corsPolicy
-        ((tablesApi.routes <+> web).orNotFound))
+      .withHttpApp(corsPolicy((web).orNotFound))
       .build
   } yield server
 
   override def run: IO[Unit] =
-    makeServer.use(_ => IO.println("Crianonim Server ready. Test localhost:4041/tables.") *> IO.never)
+    makeServer.use(_ =>
+      IO.println("Crianonim Server ready. Test localhost:4041/tables.") *> IO.never
+    )
 }

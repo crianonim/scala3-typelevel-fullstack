@@ -1,3 +1,3 @@
-import { AllApp } from './target/scala-3.4.3/app-fastopt.js';
+import { AllApp } from "./target/scala-3.6.4/app-fastopt.js";
 
-AllApp.launch("app")
+AllApp.launch("app");

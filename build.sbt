@@ -1,7 +1,12 @@
 ThisBuild / version := "1.0.1"
 
-lazy val org    = "com.crianonim"
-lazy val scala3Version = "3.4.3"
+lazy val org           = "com.crianonim"
+lazy val scala3Version = "3.6.4"
+
+// Fix deprecated -Ykind-projector warning by using -Xkind-projector
+ThisBuild / scalacOptions ++= Seq(
+  "-Xkind-projector"
+)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Common - contains domain model
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12,13 +17,13 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
     scalaVersion := scala3Version,
     organization := org,
     libraryDependencies ++= Seq(
-      "io.circe"        %%% "circe-core"    % circeVersion,
-      "io.circe"        %%% "circe-parser"  % circeVersion,
-      "io.circe"        %%% "circe-generic" % circeVersion,
-      "com.lihaoyi" %%% "fastparse" % "3.1.1",
-      "org.typelevel"         %%% "cats-effect"         % catsEffectVersion,
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0",
-    ),
+      "io.circe"          %%% "circe-core"      % circeVersion,
+      "io.circe"          %%% "circe-parser"    % circeVersion,
+      "io.circe"          %%% "circe-generic"   % circeVersion,
+      "com.lihaoyi"       %%% "fastparse"       % "3.1.1",
+      "org.typelevel"     %%% "cats-effect"     % catsEffectVersion,
+      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+    )
   )
   .jvmSettings(
     // add here if necessary
@@ -31,7 +36,7 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
 // Frontend
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-lazy val tyrianVersion = "0.11.0"
+lazy val tyrianVersion = "0.14.0"
 lazy val circeVersion  = "0.14.0"
 
 lazy val app = (project in file("app"))
@@ -52,7 +57,7 @@ lazy val app = (project in file("app"))
   )
   .dependsOn(core.js)
 
-lazy val catsEffectVersion          = "3.3.14"
+lazy val catsEffectVersion          = "3.6.3"
 lazy val http4sVersion              = "0.23.15"
 lazy val doobieVersion              = "1.0.0-RC1"
 lazy val pureConfigVersion          = "0.17.1"
@@ -65,7 +70,6 @@ lazy val logbackVersion             = "1.4.0"
 lazy val slf4jVersion               = "2.0.0"
 lazy val javaMailVersion            = "1.6.2"
 lazy val stripeVersion              = "22.12.0"
-
 
 ThisBuild / assemblyMergeStrategy := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
@@ -103,9 +107,9 @@ lazy val server = (project in file("server"))
       "org.testcontainers" % "postgresql"                    % testContainerVersion       % Test,
       "ch.qos.logback"     % "logback-classic"               % logbackVersion             % Test
     ),
-    Compile / mainClass := Some("com.crianonim.tables.Application"),
-    assembly / mainClass := Some("com.crianonim.tables.Application"),
-
-  ).settings(
+    Compile / mainClass  := Some("com.crianonim.tables.Application"),
+    assembly / mainClass := Some("com.crianonim.tables.Application")
+  )
+  .settings(
   )
   .dependsOn(core.jvm)
