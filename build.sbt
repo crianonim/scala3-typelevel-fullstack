@@ -36,8 +36,9 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
 // Frontend
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-lazy val tyrianVersion = "0.14.0"
-lazy val circeVersion  = "0.14.0"
+lazy val tyrianVersion    = "0.14.0" // Latest available for Scala 3.6.4
+lazy val circeVersion     = "0.14.15"
+lazy val circeFs2Version  = "0.14.0" // circe-fs2 not yet updated to 0.14.15
 
 lazy val app = (project in file("app"))
   .enablePlugins(ScalaJSPlugin)
@@ -58,18 +59,18 @@ lazy val app = (project in file("app"))
   .dependsOn(core.js)
 
 lazy val catsEffectVersion          = "3.6.3"
-lazy val http4sVersion              = "0.23.15"
-lazy val doobieVersion              = "1.0.0-RC1"
-lazy val pureConfigVersion          = "0.17.1"
-lazy val log4catsVersion            = "2.4.0"
-lazy val tsecVersion                = "0.4.0"
-lazy val scalaTestVersion           = "3.2.12"
-lazy val scalaTestCatsEffectVersion = "1.4.0"
-lazy val testContainerVersion       = "1.17.3"
-lazy val logbackVersion             = "1.4.0"
-lazy val slf4jVersion               = "2.0.0"
-lazy val javaMailVersion            = "1.6.2"
-lazy val stripeVersion              = "22.12.0"
+lazy val http4sVersion              = "0.23.29"
+lazy val doobieVersion              = "1.0.0-RC11"
+lazy val pureConfigVersion          = "0.17.9"
+lazy val log4catsVersion            = "2.7.1"
+lazy val tsecVersion                = "0.4.0" // No newer stable version available
+lazy val scalaTestVersion           = "3.2.19"
+lazy val scalaTestCatsEffectVersion = "1.4.0" // Current stable version
+lazy val testContainerVersion       = "1.17.3" // Java testcontainers version
+lazy val logbackVersion             = "1.5.21"
+lazy val slf4jVersion               = "2.0.17"
+lazy val javaMailVersion            = "1.6.2" // Use Jakarta Mail 2.1.5 for Spring 6+ / javax.mail for Spring 5
+lazy val stripeVersion              = "30.2.0"
 
 ThisBuild / assemblyMergeStrategy := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
@@ -89,7 +90,7 @@ lazy val server = (project in file("server"))
       "org.http4s"            %% "http4s-ember-server" % http4sVersion,
       "org.http4s"            %% "http4s-circe"        % http4sVersion,
       "io.circe"              %% "circe-generic"       % circeVersion,
-      "io.circe"              %% "circe-fs2"           % circeVersion,
+      "io.circe"              %% "circe-fs2"           % circeFs2Version,
       "org.tpolecat"          %% "doobie-core"         % doobieVersion,
       "org.tpolecat"          %% "doobie-hikari"       % doobieVersion,
       "org.tpolecat"          %% "doobie-postgres"     % doobieVersion,
