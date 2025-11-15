@@ -10,6 +10,7 @@ import com.crianonim.tables.TablesApp
 import com.crianonim.dnd.DiceRoll
 import com.crianonim.timelines.TimelinesApp
 import com.crianonim.ui.Preview
+import com.crianonim.ui.SectionTabs
 enum Msg {
   case NoMsg
   case NavigateTo(nav: Page)
@@ -29,6 +30,23 @@ case class Model(
 
 @JSExportTopLevel("AllApp")
 object App extends TyrianIOApp[Msg, Model] {
+
+  private def pageToTabId(page: Page): String = page match {
+    case Page.MainPage      => "main"
+    case Page.TablesPage    => "tables"
+    case Page.DiceRollPage  => "roll"
+    case Page.TimelinesPage => "timelines"
+    case Page.PreviewPage   => "preview"
+  }
+
+  private def tabIdToPage(tabId: String): Page = tabId match {
+    case "main"      => Page.MainPage
+    case "tables"    => Page.TablesPage
+    case "roll"      => Page.DiceRollPage
+    case "timelines" => Page.TimelinesPage
+    case "preview"   => Page.PreviewPage
+    case _           => Page.MainPage
+  }
 
   override def router: Location => Msg =
     case loc: Location.Internal =>
@@ -51,20 +69,28 @@ object App extends TyrianIOApp[Msg, Model] {
 
   override def view(model: Model): Html[Msg] =
     div(cls := "flex flex-col gap-2 p-10")(
-      div(cls := "flex gap-4")(
-        a(href := "/")("Mains"),
-        a(href := "/tables")("X Tables"),
-        a(href := "/roll")("Roll"),
-        a(href := "/timelines")("Timelines 2"),
-        a(href := "/preview")("Preview")
+      SectionTabs(
+        SectionTabs.Props(
+          tabs = List(
+            SectionTabs.TabItem("main", "Mains"),
+            SectionTabs.TabItem("tables", "X Tables"),
+            SectionTabs.TabItem("roll", "Roll"),
+            SectionTabs.TabItem("timelines", "Timelines 2"),
+            SectionTabs.TabItem("preview", "Preview")
+          ),
+          activeTabId = pageToTabId(model.page),
+          onTabClick = tabId => Msg.NavigateTo(tabIdToPage(tabId))
+        )
       ),
-      model.page match {
-        case Page.MainPage      => div()("APP")
-        case Page.TablesPage    => TablesApp.view(model.tables).map(Msg.UpdateTablesApp.apply)
-        case Page.DiceRollPage  => DiceRoll.view(model.diceRoll).map(Msg.UpdateDiceRollApp.apply)
-        case Page.TimelinesPage => TimelinesApp.view(model.timelines).map(Msg.UpdateTimelines.apply)
-        case Page.PreviewPage   => Preview.view(model.preview).map(Msg.UpdatePreview.apply)
-      }
+      div(cls := "mt-4")(
+        model.page match {
+          case Page.MainPage      => div()("APP")
+          case Page.TablesPage    => TablesApp.view(model.tables).map(Msg.UpdateTablesApp.apply)
+          case Page.DiceRollPage  => DiceRoll.view(model.diceRoll).map(Msg.UpdateDiceRollApp.apply)
+          case Page.TimelinesPage => TimelinesApp.view(model.timelines).map(Msg.UpdateTimelines.apply)
+          case Page.PreviewPage   => Preview.view(model.preview).map(Msg.UpdatePreview.apply)
+        }
+      )
     )
 
   override def update(model: Model): Msg => (Model, Cmd[IO, Msg]) = {
