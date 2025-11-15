@@ -173,7 +173,6 @@ object TimeLineBar {
         .map(TimePoint.timePointCeilDate)
         .getOrElse(viewport.end))
     )
-    println(s"dateStart: $dateStart, dateEnd: $dateEnd")
     val viewportDays = ChronoUnit.DAYS.between(viewportStart, viewportEnd)
     val scale        = width / viewportDays
     TimeLineBar(

@@ -6,7 +6,9 @@ import tyrian.Html.*
 //import cats.effect.std.Random
 import cats.syntax.all.*
 
-//import com.crianonim.ui.*
+import java.time.LocalDate
+import java.time.ZoneId
+import com.crianonim.ui.*
 import com.crianonim.timelines.{Timeline, Viewport}
 object TimelinesApp {
   case class Model(
@@ -20,9 +22,12 @@ object TimelinesApp {
     case Noop
     case UpdateViewportWidth(value: String)
     case ToggleTimelineSelection(timeline: Timeline)
+    case UnselectTimeline
     case SetViewportStart
     case SetViewportEnd
     case SetViewportToTimeline
+    case SetViewportEndToNow
+    case ResetViewport
   }
 
   def init: Model = Model(
@@ -45,6 +50,8 @@ object TimelinesApp {
         case _                                      => Some(timeline)
       }
       (model.copy(selectedTimeline = newSelection), Cmd.None)
+    case Msg.UnselectTimeline =>
+      (model.copy(selectedTimeline = None), Cmd.None)
     case Msg.SetViewportStart =>
       model.selectedTimeline match {
         case Some(timeline) =>
@@ -82,6 +89,13 @@ object TimelinesApp {
           }
         case None => (model, Cmd.None)
       }
+    case Msg.SetViewportEndToNow =>
+      val today       = LocalDate.now(ZoneId.of("UTC"))
+      val newViewport = model.viewport.copy(end = today)
+      (model.copy(viewport = newViewport), Cmd.None)
+    case Msg.ResetViewport =>
+      val newViewport = Viewport.getViewportForTimelines(model.timelines)
+      (model.copy(viewport = newViewport), Cmd.None)
   }
 
   def view(model: Model): Html[Msg] = {
@@ -101,22 +115,10 @@ object TimelinesApp {
       model.selectedTimeline match {
         case Some(_) =>
           div(cls := "flex gap-2 items-center")(
-            button(
-              onClick(Msg.Noop),
-              cls := "bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
-            )(text("Unselect")),
-            button(
-              onClick(Msg.SetViewportStart),
-              cls := "bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-            )(text("Start viewport")),
-            button(
-              onClick(Msg.SetViewportEnd),
-              cls := "bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-            )(text("End viewport")),
-            button(
-              onClick(Msg.SetViewportToTimeline),
-              cls := "bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-            )(text("Set viewport"))
+            Button.secondary("Unselect", Msg.UnselectTimeline, Button.Size.Small),
+            Button.secondary("Start viewport", Msg.SetViewportStart, Button.Size.Small),
+            Button.secondary("End viewport", Msg.SetViewportEnd, Button.Size.Small),
+            Button.secondary("Set viewport", Msg.SetViewportToTimeline, Button.Size.Small)
           )
         case None => div()()
       },
@@ -128,12 +130,16 @@ object TimelinesApp {
         div(cls := "flex gap-2")(
           div(cls := "font-semibold")(text("Viewport End:")),
           div()(text(model.viewport.end.toString))
-        )
+        ),
+        Button.secondary("Reset Viewport", Msg.ResetViewport, Button.Size.Small),
+        Button.secondary("End now", Msg.SetViewportEndToNow, Button.Size.Small)
       ),
-      div(cls := "flex flex-col gap-1 p-2")(
-        model.timelines
-          .filter(Viewport.isTimelineInViewport(model.viewport, _))
-          .map(viewTimeline(model))
+      Card.simple()(
+        div(cls := "flex flex-col gap-1")(
+          model.timelines
+            .filter(Viewport.isTimelineInViewport(model.viewport, _))
+            .map(viewTimeline(model))*
+        )
       ),
       div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText))
     )

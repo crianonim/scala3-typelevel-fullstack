@@ -299,3 +299,4 @@ Configuration in `.scalafmt.conf`:
 - `app/.postcssrc` - PostCSS configuration for Parcel
 - `build.sbt` - Multi-module SBT build with cross-compilation settings
 - Html.text does not generate Html.Html[A] - always wrap Html.text("x") in a Html.div() Html.div()(Html.text("x))
+- when buidling ui prioritise using existing components from package com.crianonim.ui (ie Button) in favour of inlining raw html (like Html.button)
