@@ -32,13 +32,35 @@ object Preview {
     div(cls := "flex flex-col gap-8 max-w-4xl")(
       h1(cls := "text-3xl font-bold")("UI Components Preview"),
 
-      // Button Component
+      // Button Component - Variants
       componentRow(
-        "Button",
-        "Interactive button component with click handler",
-        div(cls := "flex flex-col gap-2")(
-          Button.interactive("Click Me", Msg.ButtonClicked),
+        "Button Variants",
+        "Buttons come in Primary, Secondary, and Disabled variants",
+        div(cls := "flex flex-col gap-4")(
+          div(cls := "flex gap-3 items-center")(
+            Button.primary("Primary", Msg.ButtonClicked),
+            Button.secondary("Secondary", Msg.ButtonClicked),
+            Button.disabledButton("Disabled")
+          ),
           div(cls := "text-sm text-gray-600")(s"Clicked ${model.buttonClickCount} times")
+        )
+      ),
+
+      // Button Component - Sizes
+      componentRow(
+        "Button Sizes",
+        "Buttons are available in Small, Medium, and Large sizes",
+        div(cls := "flex flex-col gap-4")(
+          div(cls := "flex gap-3 items-center")(
+            Button.primary("Small", Msg.ButtonClicked, Button.Size.Small),
+            Button.primary("Medium", Msg.ButtonClicked, Button.Size.Medium),
+            Button.primary("Large", Msg.ButtonClicked, Button.Size.Large)
+          ),
+          div(cls := "flex gap-3 items-center")(
+            Button.secondary("Small", Msg.ButtonClicked, Button.Size.Small),
+            Button.secondary("Medium", Msg.ButtonClicked, Button.Size.Medium),
+            Button.secondary("Large", Msg.ButtonClicked, Button.Size.Large)
+          )
         )
       ),
 
@@ -69,7 +91,7 @@ object Preview {
         div(cls := "flex flex-wrap gap-4")(
           Tooltip.text(
             "This is a helpful tooltip!",
-            button(cls := "p-2 bg-blue-500 text-white rounded")("Hover me")
+            Button.primary("Hover me", Msg.Noop)
           ),
           Tooltip.text(
             "Another tooltip with more information",
@@ -90,7 +112,7 @@ object Preview {
               em()("emphasis"),
               text(" and formatting.")
             ),
-            button(cls := "p-2 bg-green-500 text-white rounded")("Rich Content")
+            Button.primary("Rich Content", Msg.Noop)
           ),
           Tooltip(
             div()(
@@ -113,22 +135,22 @@ object Preview {
         div(cls := "flex flex-wrap gap-6 items-center justify-center p-8")(
           Tooltip.withPosition(
             div()(text("Tooltip on top")),
-            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Top"),
+            Button.secondary("Top", Msg.Noop),
             "top"
           ),
           Tooltip.withPosition(
             div()(text("Tooltip on bottom")),
-            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Bottom"),
+            Button.secondary("Bottom", Msg.Noop),
             "bottom"
           ),
           Tooltip.withPosition(
             div()(text("Tooltip on left")),
-            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Left"),
+            Button.secondary("Left", Msg.Noop),
             "left"
           ),
           Tooltip.withPosition(
             div()(text("Tooltip on right")),
-            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Right"),
+            Button.secondary("Right", Msg.Noop),
             "right"
           )
         )
