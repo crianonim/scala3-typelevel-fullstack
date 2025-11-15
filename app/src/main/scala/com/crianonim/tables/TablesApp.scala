@@ -47,7 +47,7 @@ object TablesApp  {
   def view(model: Model): Html[Msg] =
     div(`class` := "p-10")(
       p("Hello to Tables app"),
-      Button.interactive("Get Tables Data",Msg.AskForBackend),
+      Button.primary("Get Tables Data", Msg.AskForBackend),
       model.jobs match {
         case Right(list) =>  div(`class` := "flex flex-col gap-3 ")( list.map(viewTableColumns) )
         case Left(err) => viewError(err)
