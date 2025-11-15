@@ -6,25 +6,124 @@ import tyrian.Html.*
 //import cats.effect.std.Random
 import cats.syntax.all.*
 
-//import com.crianonim.ui.*
-import com.crianonim.timelines
+import java.time.LocalDate
+import java.time.ZoneId
+import com.crianonim.ui.*
+import com.crianonim.timelines.{Timeline, Viewport}
 object TimelinesApp {
-  case class Model(timelines: List[Timeline])
+  case class Model(
+      timelines: List[Timeline],
+      viewport: Viewport,
+      selectedTimeline: Option[Timeline]
+  )
 
   enum Msg {
     case Noop
+    case ToggleTimelineSelection(timeline: Timeline)
+    case UnselectTimeline
+    case SetViewportStart
+    case SetViewportEnd
+    case SetViewportToTimeline
+    case SetViewportEndToNow
+    case ResetViewport
   }
 
-  def init: Model = Model(Timeline.examples)
+  def init: Model = Model(
+    timelines = Timeline.examples,
+    viewport = Viewport.getViewportForTimelines(Timeline.examples),
+    selectedTimeline = None
+  )
 
-  def update(model: Model): Msg => (Model, Cmd[IO, Msg]) = msg => (model, Cmd.None)
+  def update(model: Model): Msg => (Model, Cmd[IO, Msg]) = {
+    case Msg.Noop => (model, Cmd.None)
+    case Msg.ToggleTimelineSelection(timeline) =>
+      val newSelection = model.selectedTimeline match {
+        case Some(selected) if selected == timeline => None
+        case _                                      => Some(timeline)
+      }
+      (model.copy(selectedTimeline = newSelection), Cmd.None)
+    case Msg.UnselectTimeline =>
+      (model.copy(selectedTimeline = None), Cmd.None)
+    case Msg.SetViewportStart =>
+      model.selectedTimeline match {
+        case Some(timeline) =>
+          val startTimePoint = Period.minTimePointOfPeriod(timeline.period)
+          val startDate      = TimePoint.timePointFloorDate(startTimePoint)
+          val newViewport    = model.viewport.copy(start = startDate)
+          (model.copy(viewport = newViewport), Cmd.None)
+        case None => (model, Cmd.None)
+      }
+    case Msg.SetViewportEnd =>
+      model.selectedTimeline match {
+        case Some(timeline) =>
+          Period.maxTimePointOfPeriod(timeline.period) match {
+            case Some(endTimePoint) =>
+              val endDate     = TimePoint.timePointCeilDate(endTimePoint)
+              val newViewport = model.viewport.copy(end = endDate)
+              (model.copy(viewport = newViewport), Cmd.None)
+            case None => (model, Cmd.None) // Started period has no end
+          }
+        case None => (model, Cmd.None)
+      }
+    case Msg.SetViewportToTimeline =>
+      model.selectedTimeline match {
+        case Some(timeline) =>
+          val startTimePoint = Period.minTimePointOfPeriod(timeline.period)
+          val startDate      = TimePoint.timePointFloorDate(startTimePoint)
+          Period.maxTimePointOfPeriod(timeline.period) match {
+            case Some(endTimePoint) =>
+              val endDate     = TimePoint.timePointCeilDate(endTimePoint)
+              val newViewport = Viewport(start = startDate, end = endDate)
+              (model.copy(viewport = newViewport), Cmd.None)
+            case None => // Started period has no end, only set start
+              val newViewport = model.viewport.copy(start = startDate)
+              (model.copy(viewport = newViewport), Cmd.None)
+          }
+        case None => (model, Cmd.None)
+      }
+    case Msg.SetViewportEndToNow =>
+      val today       = LocalDate.now(ZoneId.of("UTC"))
+      val newViewport = model.viewport.copy(end = today)
+      (model.copy(viewport = newViewport), Cmd.None)
+    case Msg.ResetViewport =>
+      val newViewport = Viewport.getViewportForTimelines(model.timelines)
+      (model.copy(viewport = newViewport), Cmd.None)
+  }
 
   def view(model: Model): Html[Msg] = {
     div(cls := "flex flex-col gap-2 p-10")(
       div(cls := "flex gap-2 text-storm-dust-700 items-center")(
-        text("TimeLines")
+        div()(text("TimeLines"))
       ),
-      div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimeline)),
+      model.selectedTimeline match {
+        case Some(_) =>
+          div(cls := "flex gap-2 items-center")(
+            Button.secondary("Unselect", Msg.UnselectTimeline, Button.Size.Small),
+            Button.secondary("Start viewport", Msg.SetViewportStart, Button.Size.Small),
+            Button.secondary("End viewport", Msg.SetViewportEnd, Button.Size.Small),
+            Button.secondary("Set viewport", Msg.SetViewportToTimeline, Button.Size.Small)
+          )
+        case None => div()()
+      },
+      div(cls := "flex gap-4 items-center text-gray-700")(
+        div(cls := "flex gap-2")(
+          div(cls := "font-semibold")(text("Viewport Start:")),
+          div()(text(model.viewport.start.toString))
+        ),
+        div(cls := "flex gap-2")(
+          div(cls := "font-semibold")(text("Viewport End:")),
+          div()(text(model.viewport.end.toString))
+        ),
+        Button.secondary("Reset Viewport", Msg.ResetViewport, Button.Size.Small),
+        Button.secondary("End now", Msg.SetViewportEndToNow, Button.Size.Small)
+      ),
+      Card.simple()(
+        div(cls := "flex flex-col gap-1")(
+          model.timelines
+            .filter(Viewport.isTimelineInViewport(model.viewport, _))
+            .map(viewTimeline(model))*
+        )
+      ),
       div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText))
     )
   }
@@ -43,45 +142,44 @@ object TimelinesApp {
   )
 
   def viewBar(bar: TimeLineBar) = {
-    val startPoint = bar.start.getOrElse(0)
-//      div
-//        [style
-//      "margin-left"(String.fromFloat startPoint ++
-//      "px"
-//      )
-//      , style
-//      "width"(String.fromFloat length ++
-//      "px"
-//      )
-//      , Attrs.
-//      class "bg-sky-500 h-4 border border-black"
-//      , endStyle
-//      , startStyle
-//      , title timeline
-//    .name
-//      ][]
+    val startPercent = bar.start.getOrElse(0f)
+    val isOngoing = bar.timeline.period match {
+      case Started(_) => true
+      case _          => false
+    }
+
+    // Use gradient for ongoing timelines, solid color for finished ones
+    val background =
+      if isOngoing then
+        "linear-gradient(to right, #0ea5e9 0%, #0ea5e9 70%, rgba(14, 165, 233, 0) 100%)"
+      else "#0ea5e9"
+
     div(
       styles(
-        "margin-left" -> (startPoint.toString ++ "px"),
-        "width"       -> (bar.length.toString ++ "px"),
-        "border-right-style" -> (bar.timeline.period match
-          case Started(_) => "dashed"
-          case _          => "solid"
-        ),
-        "border-left-style" -> (if bar.start.nonEmpty then "solid" else "dashed")
+        "position"   -> "absolute",
+        "left"       -> (startPercent.toString ++ "%"),
+        "width"      -> (bar.length.toString ++ "%"),
+        "min-width"  -> "1px",
+        "background" -> background
       ),
       title := bar.timeline.name,
-      cls   := "bg-sky-500 h-4 border border-black"
+      cls   := "h-4"
     )()
   }
-  def viewTimeline(tl: Timeline) = {
+  def viewTimeline(model: Model)(tl: Timeline) = {
+    val bar        = TimeLineBar.timelineToTimelineBar(model.viewport, tl)
+    val isSelected = model.selectedTimeline.contains(tl)
+    val containerClasses =
+      if isSelected then "flex gap-4 items-center bg-blue-100 p-2 rounded cursor-pointer"
+      else "flex gap-4 items-center p-2 hover:bg-gray-100 cursor-pointer"
 
-    val bar = TimeLineBar.timelineToTimelineBar(Timeline.viewport, 500, tl)
-    div(cls := "flex gap-4 items-center")(
-      div(cls := "w-[500px]")(
+    div(
+      cls := containerClasses,
+      onClick(Msg.ToggleTimelineSelection(tl))
+    )(
+      div(cls := "w-full relative h-4")(
         viewBar(bar)
       )
     )
-
   }
 }
