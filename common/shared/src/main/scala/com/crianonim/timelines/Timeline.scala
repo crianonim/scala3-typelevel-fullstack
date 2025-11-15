@@ -85,6 +85,32 @@ case class YearMonthDay(year: Int, month: Int, day: Int) extends TimePoint
 
 case class Viewport(start: LocalDate, end: LocalDate)
 
+object Viewport {
+
+  def getViewportForTimelines(tls: List[Timeline]): Viewport = {
+    val start = tls
+      .map(x => Period.minTimePointOfPeriod(x.period))
+      .map(TimePoint.timePointFloorDate)
+      .min
+    val end = tls
+      .flatMap(x => Period.maxTimePointOfPeriod(x.period))
+      .map(TimePoint.timePointCeilDate)
+      .max
+    Viewport(start, end)
+  }
+  def isTimelineInViewport(vp: Viewport, tl: Timeline): Boolean = {
+    val timelineStart = TimePoint.timePointFloorDate(Period.minTimePointOfPeriod(tl.period))
+    val timelineEnd = Period
+      .maxTimePointOfPeriod(tl.period)
+      .map(TimePoint.timePointCeilDate)
+      .getOrElse(vp.end) // For Started periods, use viewport end
+
+    // Timeline overlaps with viewport if:
+    // timeline end is on or after viewport start AND timeline start is on or before viewport end
+    !timelineEnd.isBefore(vp.start) && !timelineStart.isAfter(vp.end)
+  }
+}
+
 case class Timeline(id: String, name: String, period: Period)
 
 object Timeline {
@@ -100,19 +126,7 @@ object Timeline {
     )
   )
 
-  val viewport = getViewportForTimelines(examples)
-
-  def getViewportForTimelines(tls: List[Timeline]): Viewport = {
-    val start = tls
-      .map(x => Period.minTimePointOfPeriod(x.period))
-      .map(TimePoint.timePointFloorDate)
-      .min
-    val end = tls
-      .flatMap(x => Period.maxTimePointOfPeriod(x.period))
-      .map(TimePoint.timePointCeilDate)
-      .max
-    Viewport(start, end)
-  }
+  val viewport = Viewport.getViewportForTimelines(examples)
 
   def main(args: Array[String]): Unit = {
     examples.foreach(tl => println(show"${tl.period}"))
@@ -137,7 +151,7 @@ object Timeline {
         .max
     )
 
-    val vp = getViewportForTimelines(examples)
+    val vp = Viewport.getViewportForTimelines(examples)
     println(vp)
     val bars = examples.map(
       TimeLineBar.timelineToTimelineBar(vp, 500, _)
@@ -159,6 +173,7 @@ object TimeLineBar {
         .map(TimePoint.timePointCeilDate)
         .getOrElse(viewport.end))
     )
+    println(s"dateStart: $dateStart, dateEnd: $dateEnd")
     val viewportDays = ChronoUnit.DAYS.between(viewportStart, viewportEnd)
     val scale        = width / viewportDays
     TimeLineBar(
