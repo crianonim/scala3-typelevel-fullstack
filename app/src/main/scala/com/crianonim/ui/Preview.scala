@@ -5,12 +5,13 @@ import tyrian.*
 import tyrian.Html.*
 import com.crianonim.ui.Button
 import com.crianonim.ui.Input
+import com.crianonim.ui.Tooltip
 
 object Preview {
 
   case class Model(
-    inputValue: String,
-    buttonClickCount: Int
+      inputValue: String,
+      buttonClickCount: Int
   )
 
   enum Msg {
@@ -22,7 +23,7 @@ object Preview {
   def init: Model = Model("", 0)
 
   def update(model: Model): Msg => (Model, Cmd[IO, Msg]) = {
-    case Msg.Noop => (model, Cmd.None)
+    case Msg.Noop                => (model, Cmd.None)
     case Msg.InputChanged(value) => (model.copy(inputValue = value), Cmd.None)
     case Msg.ButtonClicked => (model.copy(buttonClickCount = model.buttonClickCount + 1), Cmd.None)
   }
@@ -58,6 +59,97 @@ object Preview {
         div(cls := "flex flex-col gap-2")(
           Input.interactive(model.inputValue, Msg.InputChanged.apply, "number"),
           div(cls := "text-sm text-gray-600")("Type: number")
+        )
+      ),
+
+      // Tooltip Component - Simple Text
+      componentRow(
+        "Tooltip (Text)",
+        "Simple text tooltip that appears on hover",
+        div(cls := "flex flex-wrap gap-4")(
+          Tooltip.text(
+            "This is a helpful tooltip!",
+            button(cls := "p-2 bg-blue-500 text-white rounded")("Hover me")
+          ),
+          Tooltip.text(
+            "Another tooltip with more information",
+            span(cls := "px-3 py-1 bg-gray-200 rounded cursor-help")("?")
+          )
+        )
+      ),
+
+      // Tooltip Component - HTML Content
+      componentRow(
+        "Tooltip (HTML Content)",
+        "Tooltip with rich HTML content",
+        div(cls := "flex flex-wrap gap-4")(
+          Tooltip(
+            div(cls := "flex flex-col gap-1")(
+              strong()("Bold Title"),
+              text("This tooltip has HTML content with "),
+              em()("emphasis"),
+              text(" and formatting.")
+            ),
+            button(cls := "p-2 bg-green-500 text-white rounded")("Rich Content")
+          ),
+          Tooltip(
+            div()(
+              div(cls := "font-bold mb-1")("Feature:"),
+              ul(cls := "list-disc list-inside text-xs")(
+                li()("Point 1"),
+                li()("Point 2"),
+                li()("Point 3")
+              )
+            ),
+            span(cls := "px-3 py-1 bg-purple-500 text-white rounded cursor-pointer")("Info")
+          )
+        )
+      ),
+
+      // Tooltip Component - Positioning
+      componentRow(
+        "Tooltip (Positions)",
+        "Tooltips can appear in different positions: top, bottom, left, right",
+        div(cls := "flex flex-wrap gap-6 items-center justify-center p-8")(
+          Tooltip.withPosition(
+            div()(text("Tooltip on top")),
+            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Top"),
+            "top"
+          ),
+          Tooltip.withPosition(
+            div()(text("Tooltip on bottom")),
+            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Bottom"),
+            "bottom"
+          ),
+          Tooltip.withPosition(
+            div()(text("Tooltip on left")),
+            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Left"),
+            "left"
+          ),
+          Tooltip.withPosition(
+            div()(text("Tooltip on right")),
+            button(cls := "px-4 py-2 bg-indigo-500 text-white rounded")("Right"),
+            "right"
+          )
+        )
+      ),
+
+      // Tooltip Component - Combined with other components
+      componentRow(
+        "Tooltip (Combined)",
+        "Tooltips can wrap other UI components",
+        div(cls := "flex flex-wrap gap-4")(
+          Tooltip.text(
+            "Click this button to increment the counter",
+            Button.interactive("Increment", Msg.ButtonClicked)
+          ),
+          Tooltip(
+            div()(
+              text("Enter text here. Current value: "),
+              strong()(if (model.inputValue.isEmpty) "(empty)" else model.inputValue)
+            ),
+            Input.interactive(model.inputValue, Msg.InputChanged.apply, "text")
+          )
         )
       )
     )

@@ -298,3 +298,4 @@ Configuration in `.scalafmt.conf`:
 - `app/tailwind.config.js` - TailwindCSS configuration
 - `app/.postcssrc` - PostCSS configuration for Parcel
 - `build.sbt` - Multi-module SBT build with cross-compilation settings
+- Html.text does not generate Html.Html[A] - always wrap Html.text("x") in a Html.div() Html.div()(Html.text("x))
