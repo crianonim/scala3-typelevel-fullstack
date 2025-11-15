@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Scala 3 Typelevel Full-Stack Project
 
 ## Project Overview
@@ -106,18 +110,32 @@ This is a full-stack Scala 3 application using the Typelevel ecosystem, featurin
 
 ### Development Workflow
 
-#### Backend
+#### Quick Start: Automated Development Environment
+```bash
+# Runs all three processes in a tmux session:
+# - SBT with auto-compiling Scala.js (~app/fastOptJS)
+# - SBT server with hot reload (~server/run)
+# - Parcel dev server for frontend (npm start)
+./run_all.sh
+```
+
+This creates a tmux session named "scala-full-stack" with three panes. The backend serves on `http://localhost:8080`.
+
+#### Manual Development Workflow
+
+**Backend Only:**
 ```bash
 # Run server in development mode
 sbt server/run
 
-# Build fat JAR
+# Run with auto-reload on changes
+sbt "~server/reStart"
+
+# Build fat JAR for deployment
 sbt server/assembly
 ```
 
-The server runs on `http://localhost:8080`
-
-#### Frontend
+**Frontend Only:**
 ```bash
 cd app
 
@@ -131,12 +149,39 @@ npm start
 npm run build-prod
 ```
 
-Frontend dev server typically runs on `http://localhost:1234`
+**Scala.js Compilation:**
+```bash
+# Fast optimization (development)
+sbt "app / fastOptJS"
 
-#### Full Stack Development
-1. In one terminal: `cd app && npm start` (frontend hot reload)
-2. In another terminal: `sbt "~server/reStart"` (backend hot reload)
-3. Navigate to `http://localhost:8080` (backend serves frontend)
+# Watch mode for auto-recompilation
+sbt "~app / fastOptJS"
+
+# Full optimization (production)
+sbt "app / fullOptJS"
+```
+
+**Multi-Module Commands:**
+```bash
+# Compile all modules
+sbt compile
+
+# Compile specific module
+sbt server/compile
+sbt app/compile
+sbt common/compile
+
+# Test all modules
+sbt test
+
+# Test specific module
+sbt server/test
+```
+
+#### Port Configuration
+- Backend server: `http://localhost:8080`
+- Frontend dev server (Parcel): `http://localhost:1234`
+- Database (PostgreSQL): `localhost:5444`
 
 ### Database Setup
 
@@ -162,19 +207,28 @@ docker run -d \
 
 ## Development Features
 
-### Cross-Compilation
-- Shared models compile to both JVM and JavaScript
-- Type-safe communication between frontend and backend
-- Single source of truth for domain models
+### Cross-Compilation Architecture
+The `common` module uses `sbt-crossproject` to compile shared code to both JVM and JavaScript:
+- Domain models in `common/shared/src/main/scala` are available to both server (JVM) and app (JS)
+- Shared JSON codecs ensure serialization compatibility
+- Cross-platform libraries: Circe, Cats Effect, scala-java-time
+- Build with `sbt common/compile` to compile both targets
+
+**Important:** When adding dependencies to `common`, use `%%%` instead of `%%` to get cross-platform versions:
+```scala
+libraryDependencies += "io.circe" %%% "circe-core" % version  // Cross-platform
+```
 
 ### Hot Reloading
-- Frontend: Parcel provides instant HMR
-- Backend: SBT `~reStart` for automatic recompilation
+- Frontend: Parcel provides instant HMR for UI changes
+- Backend: SBT `~reStart` or `~server/run` for automatic recompilation
+- Scala.js: `~app/fastOptJS` for continuous compilation
 
 ### Static Type Safety
 - End-to-end type safety from database to UI
-- Compile-time guarantees for JSON serialization
-- Shared validation logic
+- Compile-time guarantees for JSON serialization via Circe
+- Shared validation logic in the `common` module
+- Tyrian's Elm architecture enforces type-safe state updates
 
 ## Compiler Options
 
@@ -211,11 +265,36 @@ The server currently:
 
 ## Scripts
 
-- `buildandrun.sh` - Convenience script for building and running
-- See `app/package.json` for frontend build scripts
+### Development Scripts
+- `run_all.sh` - Automated tmux-based development environment (runs backend, frontend, and Scala.js compiler in parallel)
+- `buildandrun.sh` - Full production build pipeline:
+  1. Compiles Scala.js (`app/fastOptJS`)
+  2. Builds frontend bundle with Parcel
+  3. Creates server fat JAR (`server/assembly`)
+  4. Builds Docker image
+  5. Runs Docker container on port 8080
 
-## Configuration
+### Frontend Scripts (in `app/package.json`)
+- `npm start` - Development server with hot reload
+- `npm run build-staging` - Staging build
+- `npm run build-prod` - Production build
 
-- `.scalafmt.conf` - Code formatting rules
+## Code Formatting
+
+Format Scala code with:
+```bash
+sbt scalafmt           # Format all Scala files
+sbt scalafmtCheck      # Check formatting without modifying
+```
+
+Configuration in `.scalafmt.conf`:
+- Scala 3 dialect
+- Max line length: 100 characters
+- Alignment preset: more
+
+## Configuration Files
+
+- `.scalafmt.conf` - Scalafmt code formatting rules
 - `app/tailwind.config.js` - TailwindCSS configuration
 - `app/.postcssrc` - PostCSS configuration for Parcel
+- `build.sbt` - Multi-module SBT build with cross-compilation settings
