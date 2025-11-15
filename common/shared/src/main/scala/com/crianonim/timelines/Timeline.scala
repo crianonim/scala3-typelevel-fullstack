@@ -154,7 +154,7 @@ object Timeline {
     val vp = Viewport.getViewportForTimelines(examples)
     println(vp)
     val bars = examples.map(
-      TimeLineBar.timelineToTimelineBar(vp, 500, _)
+      TimeLineBar.timelineToTimelineBar(vp, _)
     )
     println(bars)
   }
@@ -163,7 +163,7 @@ object Timeline {
 case class TimeLineBar(start: Option[Float], length: Float, timeline: Timeline)
 
 object TimeLineBar {
-  def timelineToTimelineBar(viewport: Viewport, width: Float, tl: Timeline): TimeLineBar = {
+  def timelineToTimelineBar(viewport: Viewport, tl: Timeline): TimeLineBar = {
     val viewportStart = viewport.start
     val viewportEnd   = viewport.end
     val (dateStart, dateEnd) = (
@@ -173,13 +173,14 @@ object TimeLineBar {
         .map(TimePoint.timePointCeilDate)
         .getOrElse(viewport.end))
     )
-    val viewportDays = ChronoUnit.DAYS.between(viewportStart, viewportEnd)
-    val scale        = width / viewportDays
+    val viewportDays = ChronoUnit.DAYS.between(viewportStart, viewportEnd).toFloat
+
+    // Calculate as percentage of viewport (0-100)
     TimeLineBar(
       start =
         if viewportStart.isAfter(dateStart) then None
-        else (ChronoUnit.DAYS.between(viewportStart, dateStart) * scale).some,
-      length = ChronoUnit.DAYS.between(List(viewportStart, dateStart).max, dateEnd) * scale,
+        else ((ChronoUnit.DAYS.between(viewportStart, dateStart).toFloat / viewportDays) * 100).some,
+      length = (ChronoUnit.DAYS.between(List(viewportStart, dateStart).max, dateEnd).toFloat / viewportDays) * 100,
       timeline = tl
     )
   }
