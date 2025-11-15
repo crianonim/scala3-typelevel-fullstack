@@ -179,8 +179,12 @@ object TimeLineBar {
     TimeLineBar(
       start =
         if viewportStart.isAfter(dateStart) then None
-        else ((ChronoUnit.DAYS.between(viewportStart, dateStart).toFloat / viewportDays) * 100).some,
-      length = (ChronoUnit.DAYS.between(List(viewportStart, dateStart).max, dateEnd).toFloat / viewportDays) * 100,
+        else
+          ((ChronoUnit.DAYS.between(viewportStart, dateStart).toFloat / viewportDays) * 100).some
+      ,
+      length = (ChronoUnit.DAYS
+        .between(List(viewportStart, dateStart).max, dateEnd)
+        .toFloat / viewportDays) * 100,
       timeline = tl
     )
   }

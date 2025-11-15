@@ -143,19 +143,27 @@ object TimelinesApp {
 
   def viewBar(bar: TimeLineBar) = {
     val startPercent = bar.start.getOrElse(0f)
+    val isOngoing = bar.timeline.period match {
+      case Started(_) => true
+      case _          => false
+    }
+
+    // Use gradient for ongoing timelines, solid color for finished ones
+    val background =
+      if isOngoing then
+        "linear-gradient(to right, #0ea5e9 0%, #0ea5e9 70%, rgba(14, 165, 233, 0) 100%)"
+      else "#0ea5e9"
+
     div(
       styles(
-        "position"     -> "absolute",
-        "left"         -> (startPercent.toString ++ "%"),
-        "width"        -> (bar.length.toString ++ "%"),
-        "border-right-style" -> (bar.timeline.period match {
-          case Started(_) => "dashed"
-          case _          => "solid"
-        }),
-        "border-left-style" -> (if bar.start.nonEmpty then "solid" else "dashed")
+        "position"   -> "absolute",
+        "left"       -> (startPercent.toString ++ "%"),
+        "width"      -> (bar.length.toString ++ "%"),
+        "min-width"  -> "1px",
+        "background" -> background
       ),
       title := bar.timeline.name,
-      cls   := "bg-sky-500 h-4 border border-black"
+      cls   := "h-4"
     )()
   }
   def viewTimeline(model: Model)(tl: Timeline) = {
