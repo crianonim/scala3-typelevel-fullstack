@@ -7,6 +7,7 @@ import com.crianonim.ui.Button
 import com.crianonim.ui.Input
 import com.crianonim.ui.Tooltip
 import com.crianonim.ui.SectionTabs
+import com.crianonim.ui.Card
 
 object Preview {
 
@@ -279,6 +280,185 @@ object Preview {
             )
           ),
           div(cls := "text-xs text-gray-500 italic")("Scroll horizontally if tabs overflow")
+        )
+      ),
+
+      // Card Component - Basic with Header
+      componentRow(
+        "Card (Basic)",
+        "Card with title and description header",
+        div(cls := "flex flex-col gap-4")(
+          Card.withHeader(
+            "Card Title",
+            "This is a card with a header containing a title and description"
+          )(
+            div(cls := "text-gray-700")(text("This is the main content area of the card. It can contain any HTML elements.")),
+            div(cls := "mt-3 flex gap-2")(
+              Button.primary("Action", Msg.Noop, Button.Size.Small),
+              Button.secondary("Cancel", Msg.Noop, Button.Size.Small)
+            )
+          )
+        )
+      ),
+
+      // Card Component - Variants
+      componentRow(
+        "Card (Variants)",
+        "Cards come in Default, Elevated (with shadow), and Outlined (thicker border) variants",
+        div(cls := "flex flex-col gap-4")(
+          Card.withHeader(
+            "Default Card",
+            "Standard card with border"
+          )(
+            div(cls := "text-gray-700")(text("This is a default card with a simple border."))
+          ),
+          Card.elevated(
+            "Elevated Card",
+            "Card with shadow instead of border"
+          )(
+            div(cls := "text-gray-700")(text("This card has a shadow effect for elevation."))
+          ),
+          Card.outlined(
+            "Outlined Card",
+            "Card with thicker border"
+          )(
+            div(cls := "text-gray-700")(text("This card has a thicker, more prominent border."))
+          )
+        )
+      ),
+
+      // Card Component - Simple (No Header)
+      componentRow(
+        "Card (Simple)",
+        "Cards without headers for content-only layouts",
+        div(cls := "flex flex-col gap-4")(
+          Card.simple()(
+            div(cls := "text-gray-700")(text("This is a simple card without a header. Perfect for pure content areas."))
+          ),
+          Card.simple(Card.Variant.Elevated)(
+            div(cls := "flex items-center gap-3")(
+              span(cls := "text-4xl")(text("📊")),
+              div()(
+                div(cls := "font-semibold text-lg")(text("Analytics")),
+                div(cls := "text-sm text-gray-600")(text("View your statistics"))
+              )
+            )
+          )
+        )
+      ),
+
+      // Card Component - Padding Options
+      componentRow(
+        "Card (Padding)",
+        "Cards support Small, Medium, and Large padding sizes",
+        div(cls := "flex flex-col gap-4")(
+          Card.withHeader(
+            "Small Padding",
+            "Compact card with minimal spacing",
+            Card.Variant.Default,
+            Card.Padding.Small
+          )(
+            div(cls := "text-sm text-gray-700")(text("This card has small padding for compact layouts."))
+          ),
+          Card.withHeader(
+            "Medium Padding",
+            "Default padding for balanced spacing",
+            Card.Variant.Default,
+            Card.Padding.Medium
+          )(
+            div(cls := "text-gray-700")(text("This card has medium padding (default)."))
+          ),
+          Card.withHeader(
+            "Large Padding",
+            "Spacious card with generous padding",
+            Card.Variant.Default,
+            Card.Padding.Large
+          )(
+            div(cls := "text-gray-700")(text("This card has large padding for a spacious feel."))
+          )
+        )
+      ),
+
+      // Card Component - With Different Content
+      componentRow(
+        "Card (Content Examples)",
+        "Cards can contain various types of content: forms, lists, buttons, etc.",
+        div(cls := "flex flex-col gap-4")(
+          Card.withHeader(
+            "User Profile",
+            "Update your personal information"
+          )(
+            div(cls := "flex flex-col gap-3")(
+              div()(
+                div(cls := "text-sm font-medium text-gray-700 mb-1")(text("Name")),
+                Input.interactive(model.inputValue, Msg.InputChanged.apply, "text")
+              ),
+              div()(
+                div(cls := "text-sm font-medium text-gray-700 mb-1")(text("Email")),
+                Input.interactive("", _ => Msg.Noop, "email")
+              ),
+              div(cls := "flex gap-2 mt-2")(
+                Button.primary("Save Changes", Msg.Noop, Button.Size.Small),
+                Button.secondary("Reset", Msg.Noop, Button.Size.Small)
+              )
+            )
+          ),
+          Card.elevated(
+            "Quick Stats",
+            "Your activity at a glance"
+          )(
+            div(cls := "grid grid-cols-3 gap-4")(
+              div(cls := "text-center")(
+                div(cls := "text-2xl font-bold text-blue-600")(text(s"${model.buttonClickCount}")),
+                div(cls := "text-xs text-gray-600")(text("Clicks"))
+              ),
+              div(cls := "text-center")(
+                div(cls := "text-2xl font-bold text-green-600")(text("12")),
+                div(cls := "text-xs text-gray-600")(text("Tasks"))
+              ),
+              div(cls := "text-center")(
+                div(cls := "text-2xl font-bold text-purple-600")(text("5")),
+                div(cls := "text-xs text-gray-600")(text("Projects"))
+              )
+            )
+          ),
+          Card.outlined(
+            "Features",
+            "Available functionality"
+          )(
+            ul(cls := "list-disc list-inside space-y-1 text-gray-700")(
+              li()(text("Type-safe UI components")),
+              li()(text("TailwindCSS styling")),
+              li()(text("Accessible markup")),
+              li()(text("Functional reactive programming"))
+            )
+          )
+        )
+      ),
+
+      // Card Component - Nested Content with Content Section
+      componentRow(
+        "Card (Nested Content)",
+        "Cards with content sections for visual hierarchy",
+        div(cls := "flex flex-col gap-4")(
+          Card.withHeader(
+            "Component Preview",
+            "Example of a card with nested content sections"
+          )(
+            Card.contentSection(
+              div(cls := "flex gap-2")(
+                Button.primary("Primary", Msg.Noop, Button.Size.Small),
+                Button.secondary("Secondary", Msg.Noop, Button.Size.Small),
+                Button.disabledButton("Disabled", Button.Size.Small)
+              )
+            ),
+            Card.contentSection(
+              div(cls := "text-sm text-gray-700")(
+                div(cls := "font-semibold mb-2")(text("Input Example")),
+                Input.interactive(model.inputValue, Msg.InputChanged.apply, "text")
+              )
+            )
+          )
         )
       )
     )
