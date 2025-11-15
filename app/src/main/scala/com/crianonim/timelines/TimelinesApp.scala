@@ -7,15 +7,21 @@ import tyrian.Html.*
 import cats.syntax.all.*
 
 //import com.crianonim.ui.*
-import com.crianonim.timelines
+import com.crianonim.timelines.{Timeline, Viewport}
 object TimelinesApp {
-  case class Model(timelines: List[Timeline])
+  case class Model(
+      timelines: List[Timeline],
+      viewport: Viewport
+  )
 
   enum Msg {
     case Noop
   }
 
-  def init: Model = Model(Timeline.examples)
+  def init: Model = Model(
+      timelines = Timeline.examples,
+      viewport = Timeline.getViewportForTimelines(Timeline.examples)
+  )
 
   def update(model: Model): Msg => (Model, Cmd[IO, Msg]) = msg => (model, Cmd.None)
 
@@ -24,7 +30,7 @@ object TimelinesApp {
       div(cls := "flex gap-2 text-storm-dust-700 items-center")(
         text("TimeLines")
       ),
-      div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimeline)),
+      div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimeline(model.viewport))),
       div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText))
     )
   }
@@ -74,9 +80,9 @@ object TimelinesApp {
       cls   := "bg-sky-500 h-4 border border-black"
     )()
   }
-  def viewTimeline(tl: Timeline) = {
+  def viewTimeline(viewport: Viewport)(tl: Timeline) = {
 
-    val bar = TimeLineBar.timelineToTimelineBar(Timeline.viewport, 500, tl)
+    val bar = TimeLineBar.timelineToTimelineBar(viewport, 500, tl)
     div(cls := "flex gap-4 items-center")(
       div(cls := "w-[500px]")(
         viewBar(bar)
