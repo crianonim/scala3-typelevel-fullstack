@@ -14,8 +14,9 @@ object Tooltip {
     * @return
     *   A wrapped element with tooltip behavior
     */
-  def apply[A](content: Html[A], child: Html[A]): Html[A] =
-    div(cls := "relative inline-block group")(
+
+  private def renderTooltip[A](content: Html[A], child: Html[A], expanded: Boolean = false): Html[A] =
+    div(cls := s"relative inline-block group ${if (expanded) "h-full w-full" else ""}")(
       child,
       div(
         cls := "absolute hidden group-hover:block bg-gray-800 text-white text-sm rounded px-3 py-2 z-50 whitespace-nowrap bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none",
@@ -28,6 +29,12 @@ object Tooltip {
         )()
       )
     )
+
+  def apply[A](content: Html[A], child: Html[A]): Html[A] =
+    renderTooltip(content, child, false)
+
+  def expanded[A](content: Html[A], child: Html[A]): Html[A] =
+    renderTooltip(content, child, true)
 
   /** Creates a tooltip with simple text content.
     *

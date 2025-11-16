@@ -1,0 +1,92 @@
+[
+  {
+    "id": "001",
+    "name": "Jan's life",
+    "period": {
+      "Started": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1980,
+            "month": 6,
+            "day": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "002",
+    "name": "Met Alex",
+    "period": {
+      "Point": {
+        "point": {
+          "YearMonthDay": {
+            "year": 2023,
+            "month": 8,
+            "day": 7
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "003",
+    "name": "Uni time",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonth": {
+            "year": 1999,
+            "month": 10
+          }
+        },
+        "end": {
+          "YearMonth": {
+            "year": 2005,
+            "month": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "004",
+    "name": "Tory's rule",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearOnly": {
+            "year": 2010
+          }
+        },
+        "end": {
+          "YearOnly": {
+            "year": 2024
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "006",
+    "name": "Edward III life",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1312,
+            "month": 11,
+            "day": 13
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1377,
+            "month": 6,
+            "day": 20
+          }
+        }
+      }
+    }
+  }
+]

@@ -56,9 +56,11 @@ object TimelinesApp {
     case ClearImportError
   }
 
+  val timelines = TimelinesFromJSON.apply
+
   def init: Model = Model(
-    timelines = Timeline.examples,
-    viewport = Viewport.getViewportForTimelines(Timeline.examples),
+    timelines = timelines,
+    viewport = Viewport.getViewportForTimelines(timelines),
     selectedTimeline = None
   )
 
@@ -178,9 +180,9 @@ object TimelinesApp {
           case Some(p) =>
             // Generate a simple ID using timestamp and random number
             val id = s"tl-${System.currentTimeMillis()}-${scala.util.Random.nextInt(10000)}"
-            val newTimeline = Timeline(id, model.newTimelineName, p)
+            val newTimeline      = Timeline(id, model.newTimelineName, p)
             val updatedTimelines = model.timelines :+ newTimeline
-            val newViewport = Viewport.getViewportForTimelines(updatedTimelines)
+            val newViewport      = Viewport.getViewportForTimelines(updatedTimelines)
 
             (
               model.copy(
@@ -216,7 +218,7 @@ object TimelinesApp {
             js.Array(json),
             dom.BlobPropertyBag(`type` = "application/json")
           )
-          val url = dom.URL.createObjectURL(blob)
+          val url  = dom.URL.createObjectURL(blob)
           val link = dom.document.createElement("a").asInstanceOf[dom.HTMLAnchorElement]
           link.href = url
           link.download = "timelines.json"
@@ -293,49 +295,49 @@ object TimelinesApp {
             // Point option
             div(cls := "flex items-center gap-2")(
               input(
-                `type` := "radio",
-                name := "periodType",
-                value := "point",
-                id := "period-point",
+                `type`  := "radio",
+                name    := "periodType",
+                value   := "point",
+                id      := "period-point",
                 checked := model.selectedPeriodType == "point",
                 onInput(_ => Msg.SelectPeriodType("point")),
                 cls := "cursor-pointer"
               ),
               label(
                 `for` := "period-point",
-                cls := "cursor-pointer text-sm"
+                cls   := "cursor-pointer text-sm"
               )(text("Point (single moment)"))
             ),
             // Closed option
             div(cls := "flex items-center gap-2")(
               input(
-                `type` := "radio",
-                name := "periodType",
-                value := "closed",
-                id := "period-closed",
+                `type`  := "radio",
+                name    := "periodType",
+                value   := "closed",
+                id      := "period-closed",
                 checked := model.selectedPeriodType == "closed",
                 onInput(_ => Msg.SelectPeriodType("closed")),
                 cls := "cursor-pointer"
               ),
               label(
                 `for` := "period-closed",
-                cls := "cursor-pointer text-sm"
+                cls   := "cursor-pointer text-sm"
               )(text("Closed (start and end)"))
             ),
             // Started option
             div(cls := "flex items-center gap-2")(
               input(
-                `type` := "radio",
-                name := "periodType",
-                value := "started",
-                id := "period-started",
+                `type`  := "radio",
+                name    := "periodType",
+                value   := "started",
+                id      := "period-started",
                 checked := model.selectedPeriodType == "started",
                 onInput(_ => Msg.SelectPeriodType("started")),
                 cls := "cursor-pointer"
               ),
               label(
                 `for` := "period-started",
-                cls := "cursor-pointer text-sm"
+                cls   := "cursor-pointer text-sm"
               )(text("Started (ongoing)"))
             )
           )
@@ -373,8 +375,10 @@ object TimelinesApp {
         div(cls := "flex gap-3 justify-end pt-4 border-t border-gray-200")(
           Button.secondary("Cancel", Msg.HideCreateForm),
           // Validation: disable create button if form is invalid
-          if (model.newTimelineName.nonEmpty && model.startTimePoint.isDefined &&
-              (model.selectedPeriodType != "closed" || model.endTimePoint.isDefined)) {
+          if (
+            model.newTimelineName.nonEmpty && model.startTimePoint.isDefined &&
+            (model.selectedPeriodType != "closed" || model.endTimePoint.isDefined)
+          ) {
             Button.primary("Create Timeline", Msg.CreateTimeline)
           } else {
             Button.disabledButton("Create Timeline")
@@ -454,6 +458,76 @@ object TimelinesApp {
     )
   }
 
+  // Grid calculation helper - returns 8 evenly spaced dates with their percentage positions
+  def calculateGridPositions(viewport: Viewport): List[(LocalDate, Float)] = {
+    import java.time.temporal.ChronoUnit
+    val totalDays = ChronoUnit.DAYS.between(viewport.start, viewport.end)
+    if (totalDays <= 0) List.empty
+    else {
+      // Calculate positions for 8 grid lines (0 to 7)
+      (0 to 7).map { i =>
+        val daysFromStart = (totalDays * i) / 7.0
+        val date          = viewport.start.plusDays(daysFromStart.toLong)
+        val percentage    = (i * 100.0f) / 7.0f
+        (date, percentage)
+      }.toList
+    }
+  }
+
+  // Adaptive label formatter based on viewport duration
+  def formatGridLabel(viewport: Viewport)(date: LocalDate): String = {
+    import java.time.temporal.ChronoUnit
+    val totalDays = ChronoUnit.DAYS.between(viewport.start, viewport.end)
+    totalDays match {
+      case d if d > 1825 => // > 5 years: show only year
+        date.getYear.toString
+      case d if d >= 365 => // 1-5 years: show year-month
+        f"${date.getYear}-${date.getMonthValue}%02d"
+      case _ => // < 1 year: show full date
+        date.toString
+    }
+  }
+
+  // View component for vertical grid lines
+  def viewGridLines(viewport: Viewport): Html[Msg] = {
+    val positions = calculateGridPositions(viewport)
+    div(cls := "absolute inset-0 pointer-events-none")(
+      positions.map { case (_, percentage) =>
+        div(
+          styles(
+            "position"         -> "absolute",
+            "left"             -> (percentage.toString ++ "%"),
+            "width"            -> "1px",
+            "height"           -> "100%",
+            "background-color" -> "#e5e7eb",
+            "opacity"          -> "0.3"
+          )
+        )()
+      }*
+    )
+  }
+
+  // View component for grid labels (top or bottom)
+  def viewGridLabels(viewport: Viewport, position: String): Html[Msg] = {
+    val positions = calculateGridPositions(viewport)
+    val formatter = formatGridLabel(viewport)
+
+    div(cls := "relative w-full h-6 pointer-events-none")(
+      positions.map { case (date, percentage) =>
+        div(
+          styles(
+            "position"  -> "absolute",
+            "left"      -> (percentage.toString ++ "%"),
+            "transform" -> "translateX(-50%)"
+          ),
+          cls := "text-xs text-gray-500 text-center"
+        )(
+          div()(text(formatter(date)))
+        )
+      }*
+    )
+  }
+
   def view(model: Model): Html[Msg] = {
     div(cls := "flex flex-col gap-2 p-10")(
       div(cls := "flex gap-2 text-storm-dust-700 items-center justify-between")(
@@ -486,10 +560,22 @@ object TimelinesApp {
         Button.secondary("End now", Msg.SetViewportEndToNow, Button.Size.Small)
       ),
       Card.simple()(
-        div(cls := "flex flex-col gap-1")(
-          model.timelines
-            .filter(Viewport.isTimelineInViewport(model.viewport, _))
-            .map(viewTimeline(model))*
+        div(cls := "flex flex-col")(
+          // Top grid labels
+          viewGridLabels(model.viewport, "top"),
+          // Timeline area with grid lines
+          div(cls := "relative")(
+            // Grid lines layer (absolute positioning, behind everything)
+            viewGridLines(model.viewport),
+            // Timeline bars layer (relative, on top of grid)
+            div(cls := "flex flex-col gap-1 relative")(
+              model.timelines
+                .filter(Viewport.isTimelineInViewport(model.viewport, _))
+                .map(viewTimeline(model))*
+            )
+          ),
+          // Bottom grid labels
+          viewGridLabels(model.viewport, "bottom")
         )
       ),
       div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText)),
@@ -526,17 +612,38 @@ object TimelinesApp {
         "linear-gradient(to right, #0ea5e9 0%, #0ea5e9 70%, rgba(14, 165, 233, 0) 100%)"
       else "#0ea5e9"
 
+    // Show label only for bars >= 10% width
+    val showLabel = bar.length >= 10f
+
     div(
       styles(
-        "position"   -> "absolute",
-        "left"       -> (startPercent.toString ++ "%"),
-        "width"      -> (bar.length.toString ++ "%"),
-        "min-width"  -> "1px",
-        "background" -> background
+        "position"  -> "absolute",
+        "left"      -> (startPercent.toString ++ "%"),
+        "width"     -> (bar.length.toString ++ "%"),
+        "min-width" -> "1px"
       ),
-      title := bar.timeline.name,
-      cls   := "h-4"
-    )()
+      cls := "h-4"
+    )(
+      Tooltip.expanded(
+        div(cls := "flex flex-col gap-1")(
+          div(cls := "font-semibold")(text(bar.timeline.name)),
+          viewPeriod(bar.timeline.period)
+        ),
+        div(
+          styles("background" -> background),
+          cls := "h-full w-full flex items-center justify-center px-1"
+        )(
+          if showLabel then
+            div(
+              cls := "text-white text-xs truncate overflow-hidden whitespace-nowrap text-center",
+              styles("font-size" -> "0.65rem")
+            )(
+              div()(text(bar.timeline.name))
+            )
+          else div()()
+        )
+      )
+    )
   }
   def viewTimeline(model: Model)(tl: Timeline) = {
     val bar        = TimeLineBar.timelineToTimelineBar(model.viewport, tl)

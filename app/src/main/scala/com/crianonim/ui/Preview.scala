@@ -32,7 +32,7 @@ object Preview {
     case Msg.Noop                => (model, Cmd.None)
     case Msg.InputChanged(value) => (model.copy(inputValue = value), Cmd.None)
     case Msg.ButtonClicked => (model.copy(buttonClickCount = model.buttonClickCount + 1), Cmd.None)
-    case Msg.TabChanged(tabId) => (model.copy(activeTabId = tabId), Cmd.None)
+    case Msg.TabChanged(tabId)        => (model.copy(activeTabId = tabId), Cmd.None)
     case Msg.ExampleTabChanged(tabId) => (model.copy(activeExampleTabId = tabId), Cmd.None)
   }
 
@@ -204,13 +204,17 @@ object Preview {
             SectionTabs.panel("overview", model.activeTabId == "overview")(
               div(cls := "p-4 bg-blue-50 rounded")(
                 h3(cls := "text-lg font-semibold mb-2")("Overview"),
-                p(cls := "text-gray-700")("This is the overview panel. It contains general information about the application.")
+                p(cls := "text-gray-700")(
+                  "This is the overview panel. It contains general information about the application."
+                )
               )
             ),
             SectionTabs.panel("details", model.activeTabId == "details")(
               div(cls := "p-4 bg-green-50 rounded")(
                 h3(cls := "text-lg font-semibold mb-2")("Details"),
-                p(cls := "text-gray-700")("Here you can find detailed information and specifications."),
+                p(cls := "text-gray-700")(
+                  "Here you can find detailed information and specifications."
+                ),
                 ul(cls := "list-disc list-inside mt-2 text-gray-600")(
                   li()("Feature 1: Type-safe components"),
                   li()("Feature 2: TailwindCSS styling"),
@@ -292,7 +296,9 @@ object Preview {
             "Card Title",
             "This is a card with a header containing a title and description"
           )(
-            div(cls := "text-gray-700")(text("This is the main content area of the card. It can contain any HTML elements.")),
+            div(cls := "text-gray-700")(
+              text("This is the main content area of the card. It can contain any HTML elements.")
+            ),
             div(cls := "mt-3 flex gap-2")(
               Button.primary("Action", Msg.Noop, Button.Size.Small),
               Button.secondary("Cancel", Msg.Noop, Button.Size.Small)
@@ -333,7 +339,9 @@ object Preview {
         "Cards without headers for content-only layouts",
         div(cls := "flex flex-col gap-4")(
           Card.simple()(
-            div(cls := "text-gray-700")(text("This is a simple card without a header. Perfect for pure content areas."))
+            div(cls := "text-gray-700")(
+              text("This is a simple card without a header. Perfect for pure content areas.")
+            )
           ),
           Card.simple(Card.Variant.Elevated)(
             div(cls := "flex items-center gap-3")(
@@ -358,7 +366,9 @@ object Preview {
             Card.Variant.Default,
             Card.Padding.Small
           )(
-            div(cls := "text-sm text-gray-700")(text("This card has small padding for compact layouts."))
+            div(cls := "text-sm text-gray-700")(
+              text("This card has small padding for compact layouts.")
+            )
           ),
           Card.withHeader(
             "Medium Padding",
