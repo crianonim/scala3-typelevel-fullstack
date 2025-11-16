@@ -5,6 +5,10 @@ import tyrian.*
 import tyrian.Html.*
 //import cats.effect.std.Random
 import cats.syntax.all.*
+import org.scalajs.dom
+import io.circe.syntax.*
+import io.circe.parser.*
+import scala.scalajs.js
 
 import java.time.LocalDate
 import java.time.ZoneId
@@ -14,7 +18,16 @@ object TimelinesApp {
   case class Model(
       timelines: List[Timeline],
       viewport: Viewport,
-      selectedTimeline: Option[Timeline]
+      selectedTimeline: Option[Timeline],
+      // Timeline creation form state
+      createFormVisible: Boolean = false,
+      newTimelineName: String = "",
+      selectedPeriodType: String = "point", // "point", "closed", or "started"
+      startTimePoint: Option[TimePoint] = None,
+      endTimePoint: Option[TimePoint] = None,
+      // Import/Export modal state
+      importExportModalVisible: Boolean = false,
+      importError: Option[String] = None
   )
 
   enum Msg {
@@ -26,6 +39,21 @@ object TimelinesApp {
     case SetViewportToTimeline
     case SetViewportEndToNow
     case ResetViewport
+    // Timeline creation form messages
+    case ShowCreateForm
+    case HideCreateForm
+    case UpdateTimelineName(name: String)
+    case SelectPeriodType(periodType: String)
+    case UpdateStartTimePoint(tp: Option[TimePoint])
+    case UpdateEndTimePoint(tp: Option[TimePoint])
+    case CreateTimeline
+    // Import/Export modal messages
+    case ShowImportExportModal
+    case HideImportExportModal
+    case ExportTimelines
+    case FileSelected(file: org.scalajs.dom.File)
+    case FileContentLoaded(content: String)
+    case ClearImportError
   }
 
   def init: Model = Model(
@@ -88,12 +116,352 @@ object TimelinesApp {
     case Msg.ResetViewport =>
       val newViewport = Viewport.getViewportForTimelines(model.timelines)
       (model.copy(viewport = newViewport), Cmd.None)
+
+    // Timeline creation form handlers
+    case Msg.ShowCreateForm =>
+      (model.copy(createFormVisible = true), Cmd.None)
+
+    case Msg.HideCreateForm =>
+      (
+        model.copy(
+          createFormVisible = false,
+          newTimelineName = "",
+          selectedPeriodType = "point",
+          startTimePoint = None,
+          endTimePoint = None
+        ),
+        Cmd.None
+      )
+
+    case Msg.UpdateTimelineName(name) =>
+      (model.copy(newTimelineName = name), Cmd.None)
+
+    case Msg.SelectPeriodType(periodType) =>
+      (
+        model.copy(
+          selectedPeriodType = periodType,
+          // Clear end time point when switching to point or started
+          endTimePoint = if (periodType == "closed") model.endTimePoint else None
+        ),
+        Cmd.None
+      )
+
+    case Msg.UpdateStartTimePoint(tp) =>
+      (model.copy(startTimePoint = tp), Cmd.None)
+
+    case Msg.UpdateEndTimePoint(tp) =>
+      (model.copy(endTimePoint = tp), Cmd.None)
+
+    case Msg.CreateTimeline =>
+      // Validate form
+      val isValid = model.newTimelineName.nonEmpty && model.startTimePoint.isDefined &&
+        (model.selectedPeriodType != "closed" || model.endTimePoint.isDefined)
+
+      if (!isValid) {
+        (model, Cmd.None) // Don't create if invalid
+      } else {
+        // Create the period based on selected type
+        val period: Option[Period] = model.selectedPeriodType match {
+          case "point" =>
+            model.startTimePoint.map(Point(_))
+          case "closed" =>
+            for {
+              start <- model.startTimePoint
+              end   <- model.endTimePoint
+            } yield Closed(start, end)
+          case "started" =>
+            model.startTimePoint.map(Started(_))
+          case _ => None
+        }
+
+        period match {
+          case Some(p) =>
+            // Generate a simple ID using timestamp and random number
+            val id = s"tl-${System.currentTimeMillis()}-${scala.util.Random.nextInt(10000)}"
+            val newTimeline = Timeline(id, model.newTimelineName, p)
+            val updatedTimelines = model.timelines :+ newTimeline
+            val newViewport = Viewport.getViewportForTimelines(updatedTimelines)
+
+            (
+              model.copy(
+                timelines = updatedTimelines,
+                viewport = newViewport,
+                createFormVisible = false,
+                newTimelineName = "",
+                selectedPeriodType = "point",
+                startTimePoint = None,
+                endTimePoint = None
+              ),
+              Cmd.None
+            )
+          case None =>
+            (model, Cmd.None) // Should not happen if validation is correct
+        }
+      }
+
+    // Import/Export handlers
+    case Msg.ShowImportExportModal =>
+      (model.copy(importExportModalVisible = true, importError = None), Cmd.None)
+
+    case Msg.HideImportExportModal =>
+      (model.copy(importExportModalVisible = false, importError = None), Cmd.None)
+
+    case Msg.ExportTimelines =>
+      // Create JSON from timelines and trigger download
+      val json = model.timelines.asJson.spaces2
+      val downloadCmd = Cmd.SideEffect[IO, Unit](
+        IO {
+          // Create a blob and download it
+          val blob = new dom.Blob(
+            js.Array(json),
+            dom.BlobPropertyBag(`type` = "application/json")
+          )
+          val url = dom.URL.createObjectURL(blob)
+          val link = dom.document.createElement("a").asInstanceOf[dom.HTMLAnchorElement]
+          link.href = url
+          link.download = "timelines.json"
+          dom.document.body.appendChild(link)
+          link.click()
+          dom.document.body.removeChild(link)
+          dom.URL.revokeObjectURL(url)
+        }
+      )
+      (model, downloadCmd)
+
+    case Msg.FileSelected(file) =>
+      // Use FileInput.readFileCmd to read the file and emit FileContentLoaded
+      (model, FileInput.readFileCmd(file)(Msg.FileContentLoaded.apply))
+
+    case Msg.FileContentLoaded(content) =>
+      // Parse JSON and validate
+      if (content.isEmpty) {
+        (model.copy(importError = Some("Failed to read file")), Cmd.None)
+      } else {
+        decode[List[Timeline]](content) match {
+          case Right(timelines) =>
+            if (timelines.isEmpty) {
+              (model.copy(importError = Some("No timelines found in file")), Cmd.None)
+            } else {
+              // Replace all timelines with imported ones
+              val newViewport = Viewport.getViewportForTimelines(timelines)
+              (
+                model.copy(
+                  timelines = timelines,
+                  viewport = newViewport,
+                  importExportModalVisible = false,
+                  importError = None,
+                  selectedTimeline = None
+                ),
+                Cmd.None
+              )
+            }
+          case Left(error) =>
+            (
+              model.copy(
+                importError = Some(s"Invalid JSON format: ${error.getMessage}")
+              ),
+              Cmd.None
+            )
+        }
+      }
+
+    case Msg.ClearImportError =>
+      (model.copy(importError = None), Cmd.None)
+  }
+
+  def viewCreateTimelineModal(model: Model): Html[Msg] = {
+    Modal.withTitle(
+      model.createFormVisible,
+      Msg.HideCreateForm,
+      "Create New Timeline",
+      Modal.Size.Large
+    )(
+      div(cls := "flex flex-col gap-6")(
+        // Timeline name input
+        div(cls := "flex flex-col gap-2")(
+          div(cls := "font-medium text-sm text-gray-700")(text("Timeline Name")),
+          Input.interactive(
+            model.newTimelineName,
+            Msg.UpdateTimelineName.apply,
+            "text"
+          )
+        ),
+        // Period type selector
+        div(cls := "flex flex-col gap-2")(
+          div(cls := "font-medium text-sm text-gray-700")(text("Period Type")),
+          div(cls := "flex gap-4")(
+            // Point option
+            div(cls := "flex items-center gap-2")(
+              input(
+                `type` := "radio",
+                name := "periodType",
+                value := "point",
+                id := "period-point",
+                checked := model.selectedPeriodType == "point",
+                onInput(_ => Msg.SelectPeriodType("point")),
+                cls := "cursor-pointer"
+              ),
+              label(
+                `for` := "period-point",
+                cls := "cursor-pointer text-sm"
+              )(text("Point (single moment)"))
+            ),
+            // Closed option
+            div(cls := "flex items-center gap-2")(
+              input(
+                `type` := "radio",
+                name := "periodType",
+                value := "closed",
+                id := "period-closed",
+                checked := model.selectedPeriodType == "closed",
+                onInput(_ => Msg.SelectPeriodType("closed")),
+                cls := "cursor-pointer"
+              ),
+              label(
+                `for` := "period-closed",
+                cls := "cursor-pointer text-sm"
+              )(text("Closed (start and end)"))
+            ),
+            // Started option
+            div(cls := "flex items-center gap-2")(
+              input(
+                `type` := "radio",
+                name := "periodType",
+                value := "started",
+                id := "period-started",
+                checked := model.selectedPeriodType == "started",
+                onInput(_ => Msg.SelectPeriodType("started")),
+                cls := "cursor-pointer"
+              ),
+              label(
+                `for` := "period-started",
+                cls := "cursor-pointer text-sm"
+              )(text("Started (ongoing)"))
+            )
+          )
+        ),
+        // Date inputs based on period type
+        model.selectedPeriodType match {
+          case "point" =>
+            DateInput.simple(
+              "Point in Time",
+              model.startTimePoint,
+              Msg.UpdateStartTimePoint.apply
+            )
+          case "closed" =>
+            div(cls := "flex flex-col gap-4")(
+              DateInput.simple(
+                "Start Date",
+                model.startTimePoint,
+                Msg.UpdateStartTimePoint.apply
+              ),
+              DateInput.simple(
+                "End Date",
+                model.endTimePoint,
+                Msg.UpdateEndTimePoint.apply
+              )
+            )
+          case "started" =>
+            DateInput.simple(
+              "Start Date",
+              model.startTimePoint,
+              Msg.UpdateStartTimePoint.apply
+            )
+          case _ => div()()
+        },
+        // Action buttons
+        div(cls := "flex gap-3 justify-end pt-4 border-t border-gray-200")(
+          Button.secondary("Cancel", Msg.HideCreateForm),
+          // Validation: disable create button if form is invalid
+          if (model.newTimelineName.nonEmpty && model.startTimePoint.isDefined &&
+              (model.selectedPeriodType != "closed" || model.endTimePoint.isDefined)) {
+            Button.primary("Create Timeline", Msg.CreateTimeline)
+          } else {
+            Button.disabledButton("Create Timeline")
+          }
+        )
+      )
+    )
+  }
+
+  def viewImportExportModal(model: Model): Html[Msg] = {
+    Modal.withTitle(
+      model.importExportModalVisible,
+      Msg.HideImportExportModal,
+      "Import / Export Timelines",
+      Modal.Size.Large
+    )(
+      div(cls := "flex flex-col gap-6")(
+        // Export Section
+        Card.simple(Card.Variant.Outlined, Card.Padding.Medium)(
+          div(cls := "flex flex-col gap-4")(
+            div(cls := "flex flex-col gap-2")(
+              div(cls := "text-lg font-semibold text-gray-800")(text("Export Timelines")),
+              div(cls := "text-sm text-gray-600")(
+                text(s"Export all ${model.timelines.length} timelines to a JSON file")
+              )
+            ),
+            Button.primary(
+              "Download timelines.json",
+              Msg.ExportTimelines,
+              Button.Size.Medium
+            )
+          )
+        ),
+        // Import Section
+        Card.simple(Card.Variant.Outlined, Card.Padding.Medium)(
+          div(cls := "flex flex-col gap-4")(
+            div(cls := "flex flex-col gap-2")(
+              div(cls := "text-lg font-semibold text-gray-800")(text("Import Timelines")),
+              div(cls := "text-sm text-gray-600")(
+                div()(text("Upload a JSON file to replace all current timelines.")),
+                div(cls := "text-orange-600 font-medium mt-1")(
+                  text("⚠️ Warning: This will replace all existing timelines!")
+                )
+              )
+            ),
+            FileInput(
+              Msg.FileSelected.apply,
+              accept = ".json,application/json",
+              label = Some("Choose JSON file")
+            ),
+            // Error message display
+            model.importError match {
+              case Some(error) =>
+                div(cls := "bg-red-50 border border-red-200 rounded-md p-3")(
+                  div(cls := "flex items-start gap-2")(
+                    div(cls := "text-red-600 font-semibold")(text("Import Error:")),
+                    div(cls := "text-red-700 text-sm flex-1")(text(error))
+                  ),
+                  div(cls := "mt-2")(
+                    Button.secondary(
+                      "Clear Error",
+                      Msg.ClearImportError,
+                      Button.Size.Small
+                    )
+                  )
+                )
+              case None =>
+                div()()
+            }
+          )
+        ),
+        // Close button
+        div(cls := "flex justify-end pt-4 border-t border-gray-200")(
+          Button.secondary("Close", Msg.HideImportExportModal, Button.Size.Medium)
+        )
+      )
+    )
   }
 
   def view(model: Model): Html[Msg] = {
     div(cls := "flex flex-col gap-2 p-10")(
-      div(cls := "flex gap-2 text-storm-dust-700 items-center")(
-        div()(text("TimeLines"))
+      div(cls := "flex gap-2 text-storm-dust-700 items-center justify-between")(
+        div()(text("TimeLines")),
+        div(cls := "flex gap-2")(
+          Button.secondary("Import/Export", Msg.ShowImportExportModal, Button.Size.Medium),
+          Button.primary("Add Timeline", Msg.ShowCreateForm, Button.Size.Medium)
+        )
       ),
       model.selectedTimeline match {
         case Some(_) =>
@@ -124,7 +492,11 @@ object TimelinesApp {
             .map(viewTimeline(model))*
         )
       ),
-      div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText))
+      div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText)),
+      // Render the create timeline modal
+      viewCreateTimelineModal(model),
+      // Render the import/export modal
+      viewImportExportModal(model)
     )
   }
   def viewTimePoint(t: TimePoint) = text(t.show)

@@ -3,6 +3,8 @@ import cats.Show
 // import cats.implicits.showInterpolator
 import cats.syntax.all.*
 import com.crianonim.timelines
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.*
 
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -15,6 +17,9 @@ object Period {
       case Point(point)       => point.show
       case Closed(start, end) => show"${start} >> ${end}"
       case Started(start)     => show"${start} >> ..."
+
+  implicit val encoder: Encoder[Period] = deriveEncoder
+  implicit val decoder: Decoder[Period] = deriveDecoder
 
 //  // create an Ordering instance for Period
 //    given Ordering[Period] = new Ordering[Period] {
@@ -62,6 +67,9 @@ object TimePoint {
         year.toString ++ "-" ++ month.toString.padTo(2, '0').reverse ++ "-" ++ day.toString
           .padTo(2, '0')
           .reverse
+
+  implicit val encoder: Encoder[TimePoint] = deriveEncoder
+  implicit val decoder: Decoder[TimePoint] = deriveDecoder
 
   def timePointFloorDate(t: TimePoint): LocalDate =
     t match
@@ -114,6 +122,9 @@ object Viewport {
 case class Timeline(id: String, name: String, period: Period)
 
 object Timeline {
+  implicit val encoder: Encoder[Timeline] = deriveEncoder
+  implicit val decoder: Decoder[Timeline] = deriveDecoder
+
   val examples = List(
     Timeline("001", "Jan's life", Started(YearMonthDay(1980, 6, 6))),
     Timeline("002", "Met Alex", Point(YearMonthDay(2024, 7, 8))),
