@@ -62,11 +62,9 @@ object TimePoint {
   given Show[TimePoint] = new Show[TimePoint]:
     override def show(t: TimePoint): String = t match
       case YearOnly(year)         => year.toString
-      case YearMonth(year, month) => year.toString ++ "-" ++ month.toString.padTo(2, '0').reverse
+      case YearMonth(year, month) => year.toString ++ "-" ++ f"$month%02d"
       case YearMonthDay(year, month, day) =>
-        year.toString ++ "-" ++ month.toString.padTo(2, '0').reverse ++ "-" ++ day.toString
-          .padTo(2, '0')
-          .reverse
+        year.toString ++ "-" ++ f"$month%02d" ++ "-" ++ f"$day%02d"
 
   implicit val encoder: Encoder[TimePoint] = deriveEncoder
   implicit val decoder: Decoder[TimePoint] = deriveDecoder

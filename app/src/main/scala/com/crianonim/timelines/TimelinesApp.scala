@@ -56,9 +56,11 @@ object TimelinesApp {
     case ClearImportError
   }
 
+  val timelines = TimelinesFromJSON.apply
+
   def init: Model = Model(
-    timelines = Timeline.examples,
-    viewport = Viewport.getViewportForTimelines(Timeline.examples),
+    timelines = timelines,
+    viewport = Viewport.getViewportForTimelines(timelines),
     selectedTimeline = None
   )
 
@@ -493,12 +495,12 @@ object TimelinesApp {
       positions.map { case (_, percentage) =>
         div(
           styles(
-            "position" -> "absolute",
-            "left"     -> (percentage.toString ++ "%"),
-            "width"    -> "1px",
-            "height"   -> "100%",
+            "position"         -> "absolute",
+            "left"             -> (percentage.toString ++ "%"),
+            "width"            -> "1px",
+            "height"           -> "100%",
             "background-color" -> "#e5e7eb",
-            "opacity"  -> "0.3"
+            "opacity"          -> "0.3"
           )
         )()
       }*
@@ -514,8 +516,8 @@ object TimelinesApp {
       positions.map { case (date, percentage) =>
         div(
           styles(
-            "position" -> "absolute",
-            "left"     -> (percentage.toString ++ "%"),
+            "position"  -> "absolute",
+            "left"      -> (percentage.toString ++ "%"),
             "transform" -> "translateX(-50%)"
           ),
           cls := "text-xs text-gray-500 text-center"
