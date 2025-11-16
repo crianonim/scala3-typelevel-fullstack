@@ -178,9 +178,9 @@ object TimelinesApp {
           case Some(p) =>
             // Generate a simple ID using timestamp and random number
             val id = s"tl-${System.currentTimeMillis()}-${scala.util.Random.nextInt(10000)}"
-            val newTimeline = Timeline(id, model.newTimelineName, p)
+            val newTimeline      = Timeline(id, model.newTimelineName, p)
             val updatedTimelines = model.timelines :+ newTimeline
-            val newViewport = Viewport.getViewportForTimelines(updatedTimelines)
+            val newViewport      = Viewport.getViewportForTimelines(updatedTimelines)
 
             (
               model.copy(
@@ -216,7 +216,7 @@ object TimelinesApp {
             js.Array(json),
             dom.BlobPropertyBag(`type` = "application/json")
           )
-          val url = dom.URL.createObjectURL(blob)
+          val url  = dom.URL.createObjectURL(blob)
           val link = dom.document.createElement("a").asInstanceOf[dom.HTMLAnchorElement]
           link.href = url
           link.download = "timelines.json"
@@ -293,49 +293,49 @@ object TimelinesApp {
             // Point option
             div(cls := "flex items-center gap-2")(
               input(
-                `type` := "radio",
-                name := "periodType",
-                value := "point",
-                id := "period-point",
+                `type`  := "radio",
+                name    := "periodType",
+                value   := "point",
+                id      := "period-point",
                 checked := model.selectedPeriodType == "point",
                 onInput(_ => Msg.SelectPeriodType("point")),
                 cls := "cursor-pointer"
               ),
               label(
                 `for` := "period-point",
-                cls := "cursor-pointer text-sm"
+                cls   := "cursor-pointer text-sm"
               )(text("Point (single moment)"))
             ),
             // Closed option
             div(cls := "flex items-center gap-2")(
               input(
-                `type` := "radio",
-                name := "periodType",
-                value := "closed",
-                id := "period-closed",
+                `type`  := "radio",
+                name    := "periodType",
+                value   := "closed",
+                id      := "period-closed",
                 checked := model.selectedPeriodType == "closed",
                 onInput(_ => Msg.SelectPeriodType("closed")),
                 cls := "cursor-pointer"
               ),
               label(
                 `for` := "period-closed",
-                cls := "cursor-pointer text-sm"
+                cls   := "cursor-pointer text-sm"
               )(text("Closed (start and end)"))
             ),
             // Started option
             div(cls := "flex items-center gap-2")(
               input(
-                `type` := "radio",
-                name := "periodType",
-                value := "started",
-                id := "period-started",
+                `type`  := "radio",
+                name    := "periodType",
+                value   := "started",
+                id      := "period-started",
                 checked := model.selectedPeriodType == "started",
                 onInput(_ => Msg.SelectPeriodType("started")),
                 cls := "cursor-pointer"
               ),
               label(
                 `for` := "period-started",
-                cls := "cursor-pointer text-sm"
+                cls   := "cursor-pointer text-sm"
               )(text("Started (ongoing)"))
             )
           )
@@ -373,8 +373,10 @@ object TimelinesApp {
         div(cls := "flex gap-3 justify-end pt-4 border-t border-gray-200")(
           Button.secondary("Cancel", Msg.HideCreateForm),
           // Validation: disable create button if form is invalid
-          if (model.newTimelineName.nonEmpty && model.startTimePoint.isDefined &&
-              (model.selectedPeriodType != "closed" || model.endTimePoint.isDefined)) {
+          if (
+            model.newTimelineName.nonEmpty && model.startTimePoint.isDefined &&
+            (model.selectedPeriodType != "closed" || model.endTimePoint.isDefined)
+          ) {
             Button.primary("Create Timeline", Msg.CreateTimeline)
           } else {
             Button.disabledButton("Create Timeline")
@@ -528,15 +530,24 @@ object TimelinesApp {
 
     div(
       styles(
-        "position"   -> "absolute",
-        "left"       -> (startPercent.toString ++ "%"),
-        "width"      -> (bar.length.toString ++ "%"),
-        "min-width"  -> "1px",
-        "background" -> background
+        "position"  -> "absolute",
+        "left"      -> (startPercent.toString ++ "%"),
+        "width"     -> (bar.length.toString ++ "%"),
+        "min-width" -> "1px"
       ),
-      title := bar.timeline.name,
-      cls   := "h-4"
-    )()
+      cls := "h-4"
+    )(
+      Tooltip.expanded(
+        div(cls := "flex flex-col gap-1")(
+          div(cls := "font-semibold")(text(bar.timeline.name)),
+          viewPeriod(bar.timeline.period)
+        ),
+        div(
+          styles("background" -> background),
+          cls := "h-full w-full"
+        )()
+      )
+    )
   }
   def viewTimeline(model: Model)(tl: Timeline) = {
     val bar        = TimeLineBar.timelineToTimelineBar(model.viewport, tl)
