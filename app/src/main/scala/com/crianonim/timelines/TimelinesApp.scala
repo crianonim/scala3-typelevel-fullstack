@@ -456,6 +456,76 @@ object TimelinesApp {
     )
   }
 
+  // Grid calculation helper - returns 8 evenly spaced dates with their percentage positions
+  def calculateGridPositions(viewport: Viewport): List[(LocalDate, Float)] = {
+    import java.time.temporal.ChronoUnit
+    val totalDays = ChronoUnit.DAYS.between(viewport.start, viewport.end)
+    if (totalDays <= 0) List.empty
+    else {
+      // Calculate positions for 8 grid lines (0 to 7)
+      (0 to 7).map { i =>
+        val daysFromStart = (totalDays * i) / 7.0
+        val date          = viewport.start.plusDays(daysFromStart.toLong)
+        val percentage    = (i * 100.0f) / 7.0f
+        (date, percentage)
+      }.toList
+    }
+  }
+
+  // Adaptive label formatter based on viewport duration
+  def formatGridLabel(viewport: Viewport)(date: LocalDate): String = {
+    import java.time.temporal.ChronoUnit
+    val totalDays = ChronoUnit.DAYS.between(viewport.start, viewport.end)
+    totalDays match {
+      case d if d > 1825 => // > 5 years: show only year
+        date.getYear.toString
+      case d if d >= 365 => // 1-5 years: show year-month
+        f"${date.getYear}-${date.getMonthValue}%02d"
+      case _ => // < 1 year: show full date
+        date.toString
+    }
+  }
+
+  // View component for vertical grid lines
+  def viewGridLines(viewport: Viewport): Html[Msg] = {
+    val positions = calculateGridPositions(viewport)
+    div(cls := "absolute inset-0 pointer-events-none")(
+      positions.map { case (_, percentage) =>
+        div(
+          styles(
+            "position" -> "absolute",
+            "left"     -> (percentage.toString ++ "%"),
+            "width"    -> "1px",
+            "height"   -> "100%",
+            "background-color" -> "#e5e7eb",
+            "opacity"  -> "0.3"
+          )
+        )()
+      }*
+    )
+  }
+
+  // View component for grid labels (top or bottom)
+  def viewGridLabels(viewport: Viewport, position: String): Html[Msg] = {
+    val positions = calculateGridPositions(viewport)
+    val formatter = formatGridLabel(viewport)
+
+    div(cls := "relative w-full h-6 pointer-events-none")(
+      positions.map { case (date, percentage) =>
+        div(
+          styles(
+            "position" -> "absolute",
+            "left"     -> (percentage.toString ++ "%"),
+            "transform" -> "translateX(-50%)"
+          ),
+          cls := "text-xs text-gray-500 text-center"
+        )(
+          div()(text(formatter(date)))
+        )
+      }*
+    )
+  }
+
   def view(model: Model): Html[Msg] = {
     div(cls := "flex flex-col gap-2 p-10")(
       div(cls := "flex gap-2 text-storm-dust-700 items-center justify-between")(
@@ -488,10 +558,22 @@ object TimelinesApp {
         Button.secondary("End now", Msg.SetViewportEndToNow, Button.Size.Small)
       ),
       Card.simple()(
-        div(cls := "flex flex-col gap-1")(
-          model.timelines
-            .filter(Viewport.isTimelineInViewport(model.viewport, _))
-            .map(viewTimeline(model))*
+        div(cls := "flex flex-col")(
+          // Top grid labels
+          viewGridLabels(model.viewport, "top"),
+          // Timeline area with grid lines
+          div(cls := "relative")(
+            // Grid lines layer (absolute positioning, behind everything)
+            viewGridLines(model.viewport),
+            // Timeline bars layer (relative, on top of grid)
+            div(cls := "flex flex-col gap-1 relative")(
+              model.timelines
+                .filter(Viewport.isTimelineInViewport(model.viewport, _))
+                .map(viewTimeline(model))*
+            )
+          ),
+          // Bottom grid labels
+          viewGridLabels(model.viewport, "bottom")
         )
       ),
       div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText)),
@@ -528,6 +610,9 @@ object TimelinesApp {
         "linear-gradient(to right, #0ea5e9 0%, #0ea5e9 70%, rgba(14, 165, 233, 0) 100%)"
       else "#0ea5e9"
 
+    // Show label only for bars >= 10% width
+    val showLabel = bar.length >= 10f
+
     div(
       styles(
         "position"  -> "absolute",
@@ -544,8 +629,17 @@ object TimelinesApp {
         ),
         div(
           styles("background" -> background),
-          cls := "h-full w-full"
-        )()
+          cls := "h-full w-full flex items-center justify-center px-1"
+        )(
+          if showLabel then
+            div(
+              cls := "text-white text-xs truncate overflow-hidden whitespace-nowrap text-center",
+              styles("font-size" -> "0.65rem")
+            )(
+              div()(text(bar.timeline.name))
+            )
+          else div()()
+        )
       )
     )
   }
