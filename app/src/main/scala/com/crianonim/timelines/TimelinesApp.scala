@@ -5,6 +5,10 @@ import tyrian.*
 import tyrian.Html.*
 //import cats.effect.std.Random
 import cats.syntax.all.*
+import org.scalajs.dom
+import io.circe.syntax.*
+import io.circe.parser.*
+import scala.scalajs.js
 
 import java.time.LocalDate
 import java.time.ZoneId
@@ -20,7 +24,10 @@ object TimelinesApp {
       newTimelineName: String = "",
       selectedPeriodType: String = "point", // "point", "closed", or "started"
       startTimePoint: Option[TimePoint] = None,
-      endTimePoint: Option[TimePoint] = None
+      endTimePoint: Option[TimePoint] = None,
+      // Import/Export modal state
+      importExportModalVisible: Boolean = false,
+      importError: Option[String] = None
   )
 
   enum Msg {
@@ -40,6 +47,13 @@ object TimelinesApp {
     case UpdateStartTimePoint(tp: Option[TimePoint])
     case UpdateEndTimePoint(tp: Option[TimePoint])
     case CreateTimeline
+    // Import/Export modal messages
+    case ShowImportExportModal
+    case HideImportExportModal
+    case ExportTimelines
+    case FileSelected(file: org.scalajs.dom.File)
+    case FileContentLoaded(content: String)
+    case ClearImportError
   }
 
   def init: Model = Model(
@@ -184,6 +198,75 @@ object TimelinesApp {
             (model, Cmd.None) // Should not happen if validation is correct
         }
       }
+
+    // Import/Export handlers
+    case Msg.ShowImportExportModal =>
+      (model.copy(importExportModalVisible = true, importError = None), Cmd.None)
+
+    case Msg.HideImportExportModal =>
+      (model.copy(importExportModalVisible = false, importError = None), Cmd.None)
+
+    case Msg.ExportTimelines =>
+      // Create JSON from timelines and trigger download
+      val json = model.timelines.asJson.spaces2
+      val downloadCmd = Cmd.SideEffect[IO, Unit](
+        IO {
+          // Create a blob and download it
+          val blob = new dom.Blob(
+            js.Array(json),
+            dom.BlobPropertyBag(`type` = "application/json")
+          )
+          val url = dom.URL.createObjectURL(blob)
+          val link = dom.document.createElement("a").asInstanceOf[dom.HTMLAnchorElement]
+          link.href = url
+          link.download = "timelines.json"
+          dom.document.body.appendChild(link)
+          link.click()
+          dom.document.body.removeChild(link)
+          dom.URL.revokeObjectURL(url)
+        }
+      )
+      (model, downloadCmd)
+
+    case Msg.FileSelected(file) =>
+      // Use FileInput.readFileCmd to read the file and emit FileContentLoaded
+      (model, FileInput.readFileCmd(file)(Msg.FileContentLoaded.apply))
+
+    case Msg.FileContentLoaded(content) =>
+      // Parse JSON and validate
+      if (content.isEmpty) {
+        (model.copy(importError = Some("Failed to read file")), Cmd.None)
+      } else {
+        decode[List[Timeline]](content) match {
+          case Right(timelines) =>
+            if (timelines.isEmpty) {
+              (model.copy(importError = Some("No timelines found in file")), Cmd.None)
+            } else {
+              // Replace all timelines with imported ones
+              val newViewport = Viewport.getViewportForTimelines(timelines)
+              (
+                model.copy(
+                  timelines = timelines,
+                  viewport = newViewport,
+                  importExportModalVisible = false,
+                  importError = None,
+                  selectedTimeline = None
+                ),
+                Cmd.None
+              )
+            }
+          case Left(error) =>
+            (
+              model.copy(
+                importError = Some(s"Invalid JSON format: ${error.getMessage}")
+              ),
+              Cmd.None
+            )
+        }
+      }
+
+    case Msg.ClearImportError =>
+      (model.copy(importError = None), Cmd.None)
   }
 
   def viewCreateTimelineModal(model: Model): Html[Msg] = {
@@ -301,11 +384,84 @@ object TimelinesApp {
     )
   }
 
+  def viewImportExportModal(model: Model): Html[Msg] = {
+    Modal.withTitle(
+      model.importExportModalVisible,
+      Msg.HideImportExportModal,
+      "Import / Export Timelines",
+      Modal.Size.Large
+    )(
+      div(cls := "flex flex-col gap-6")(
+        // Export Section
+        Card.simple(Card.Variant.Outlined, Card.Padding.Medium)(
+          div(cls := "flex flex-col gap-4")(
+            div(cls := "flex flex-col gap-2")(
+              div(cls := "text-lg font-semibold text-gray-800")(text("Export Timelines")),
+              div(cls := "text-sm text-gray-600")(
+                text(s"Export all ${model.timelines.length} timelines to a JSON file")
+              )
+            ),
+            Button.primary(
+              "Download timelines.json",
+              Msg.ExportTimelines,
+              Button.Size.Medium
+            )
+          )
+        ),
+        // Import Section
+        Card.simple(Card.Variant.Outlined, Card.Padding.Medium)(
+          div(cls := "flex flex-col gap-4")(
+            div(cls := "flex flex-col gap-2")(
+              div(cls := "text-lg font-semibold text-gray-800")(text("Import Timelines")),
+              div(cls := "text-sm text-gray-600")(
+                div()(text("Upload a JSON file to replace all current timelines.")),
+                div(cls := "text-orange-600 font-medium mt-1")(
+                  text("⚠️ Warning: This will replace all existing timelines!")
+                )
+              )
+            ),
+            FileInput(
+              Msg.FileSelected.apply,
+              accept = ".json,application/json",
+              label = Some("Choose JSON file")
+            ),
+            // Error message display
+            model.importError match {
+              case Some(error) =>
+                div(cls := "bg-red-50 border border-red-200 rounded-md p-3")(
+                  div(cls := "flex items-start gap-2")(
+                    div(cls := "text-red-600 font-semibold")(text("Import Error:")),
+                    div(cls := "text-red-700 text-sm flex-1")(text(error))
+                  ),
+                  div(cls := "mt-2")(
+                    Button.secondary(
+                      "Clear Error",
+                      Msg.ClearImportError,
+                      Button.Size.Small
+                    )
+                  )
+                )
+              case None =>
+                div()()
+            }
+          )
+        ),
+        // Close button
+        div(cls := "flex justify-end pt-4 border-t border-gray-200")(
+          Button.secondary("Close", Msg.HideImportExportModal, Button.Size.Medium)
+        )
+      )
+    )
+  }
+
   def view(model: Model): Html[Msg] = {
     div(cls := "flex flex-col gap-2 p-10")(
       div(cls := "flex gap-2 text-storm-dust-700 items-center justify-between")(
         div()(text("TimeLines")),
-        Button.primary("Add Timeline", Msg.ShowCreateForm, Button.Size.Medium)
+        div(cls := "flex gap-2")(
+          Button.secondary("Import/Export", Msg.ShowImportExportModal, Button.Size.Medium),
+          Button.primary("Add Timeline", Msg.ShowCreateForm, Button.Size.Medium)
+        )
       ),
       model.selectedTimeline match {
         case Some(_) =>
@@ -338,7 +494,9 @@ object TimelinesApp {
       ),
       div(cls := "flex flex-col gap-1 p-2")(model.timelines.map(viewTimelineAsText)),
       // Render the create timeline modal
-      viewCreateTimelineModal(model)
+      viewCreateTimelineModal(model),
+      // Render the import/export modal
+      viewImportExportModal(model)
     )
   }
   def viewTimePoint(t: TimePoint) = text(t.show)
