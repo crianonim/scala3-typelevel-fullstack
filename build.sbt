@@ -11,6 +11,8 @@ ThisBuild / scalacOptions ++= Seq(
 // Common - contains domain model
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+lazy val munitVersion = "1.0.0"
+
 lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
   .settings(
     name         := "common",
@@ -22,8 +24,11 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
       "io.circe"          %%% "circe-generic"   % circeVersion,
       "com.lihaoyi"       %%% "fastparse"       % "3.1.1",
       "org.typelevel"     %%% "cats-effect"     % catsEffectVersion,
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
-    )
+      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0",
+      "org.scalameta"     %%% "munit"           % munitVersion % Test,
+      "org.typelevel"     %%% "munit-cats-effect" % "2.0.0"    % Test
+    ),
+    testFrameworks += new TestFramework("munit.Framework")
   )
   .jvmSettings(
     // add here if necessary

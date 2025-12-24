@@ -244,8 +244,10 @@ private class EvaluatorImpl[F[_]: Monad: Random] extends Evaluator[F]:
           toResult <- evaluateExpression(to, env)
           result <- (idResult, fromResult, toResult) match
             case (Right(name), Right(NumberValue(fromVal)), Right(NumberValue(toVal))) =>
-              Random[F].betweenDouble(fromVal, toVal + 1).map { rnd =>
-                val value = NumberValue(math.round(rnd).toDouble)
+              // Generate random in [0, 1) range and scale to [from, to] inclusive
+              Random[F].nextDouble.map { rnd =>
+                val scaled = math.round(rnd * (toVal - fromVal) + fromVal).toDouble
+                val value = NumberValue(scaled)
                 Right(env.copy(vars = env.vars + (name -> value)))
               }
             case (Left(err), _, _) => Left(err).pure[F]

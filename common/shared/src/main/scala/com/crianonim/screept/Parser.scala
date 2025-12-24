@@ -23,7 +23,7 @@ object Parser:
     P(identifierName).map(LiteralId.apply)
 
   private def computedId[$: P]: P[ComputedId] =
-    P("$[" ~/ ws ~ conditionalExpr ~ ws ~ "]").map(ComputedId.apply)
+    P("$[" ~ ws ~ conditionalExpr ~ ws ~ "]").map(ComputedId.apply)
 
   private def identifier[$: P]: P[Identifier] =
     P(computedId | literalId)
