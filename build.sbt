@@ -11,7 +11,7 @@ ThisBuild / scalacOptions ++= Seq(
 // Common - contains domain model
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-lazy val munitVersion = "1.0.0"
+lazy val munitVersion = "1.2.4"
 
 lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
   .settings(
@@ -24,9 +24,9 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
       "io.circe"          %%% "circe-generic"   % circeVersion,
       "com.lihaoyi"       %%% "fastparse"       % "3.1.1",
       "org.typelevel"     %%% "cats-effect"     % catsEffectVersion,
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0",
+      "io.github.cquiroz" %%% "scala-java-time" % "2.6.0",
       "org.scalameta"     %%% "munit"           % munitVersion % Test,
-      "org.typelevel"     %%% "munit-cats-effect" % "2.0.0"    % Test
+      "org.typelevel"     %%% "munit-cats-effect" % "2.2.0"    % Test
     ),
     testFrameworks += new TestFramework("munit.Framework")
   )
@@ -43,7 +43,7 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
 
 lazy val tyrianVersion    = "0.14.0" // Latest available for Scala 3.6.4
 lazy val circeVersion     = "0.14.15"
-lazy val circeFs2Version  = "0.14.0" // circe-fs2 not yet updated to 0.14.15
+lazy val circeFs2Version  = "0.14.1"
 
 lazy val app = (project in file("app"))
   .enablePlugins(ScalaJSPlugin)
@@ -63,16 +63,16 @@ lazy val app = (project in file("app"))
   )
   .dependsOn(core.js)
 
-lazy val catsEffectVersion          = "3.6.3"
-lazy val http4sVersion              = "0.23.29"
-lazy val doobieVersion              = "1.0.0-RC11"
-lazy val pureConfigVersion          = "0.17.9"
-lazy val log4catsVersion            = "2.7.1"
-lazy val tsecVersion                = "0.4.0" // No newer stable version available
+lazy val catsEffectVersion          = "3.7.0"
+lazy val http4sVersion              = "0.23.33"
+lazy val doobieVersion              = "1.0.0-RC12"
+lazy val pureConfigVersion          = "0.17.10"
+lazy val log4catsVersion            = "2.8.0"
+lazy val tsecVersion                = "0.5.0"
 lazy val scalaTestVersion           = "3.2.19"
-lazy val scalaTestCatsEffectVersion = "1.4.0" // Current stable version
-lazy val testContainerVersion       = "1.17.3" // Java testcontainers version
-lazy val logbackVersion             = "1.5.21"
+lazy val scalaTestCatsEffectVersion = "1.8.0"
+lazy val testContainerVersion       = "1.21.4"
+lazy val logbackVersion             = "1.5.32"
 lazy val slf4jVersion               = "2.0.17"
 lazy val javaMailVersion            = "1.6.2" // Use Jakarta Mail 2.1.5 for Spring 6+ / javax.mail for Spring 5
 lazy val stripeVersion              = "30.2.0"
