@@ -1,0 +1,125 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Screept",
+  "scopeName": "source.screept",
+  "fileTypes": ["screept", "scr"],
+  "patterns": [
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords-control" },
+    { "include": "#keywords-statement" },
+    { "include": "#keywords-func" },
+    { "include": "#argument-variables" },
+    { "include": "#computed-identifier" },
+    { "include": "#operators" },
+    { "include": "#punctuation" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "strings": {
+      "name": "string.quoted.double.screept",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.screept",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.screept",
+      "match": "-?\\b[0-9]+(\\.[0-9]+)?\\b"
+    },
+    "keywords-control": {
+      "name": "keyword.control.screept",
+      "match": "\\b(IF|THEN|ELSE)\\b"
+    },
+    "keywords-statement": {
+      "name": "keyword.other.screept",
+      "match": "\\b(PRINT|EMIT|PROC|RUN|RND)\\b"
+    },
+    "keywords-func": {
+      "name": "storage.type.function.screept",
+      "match": "\\bFUNC\\b"
+    },
+    "argument-variables": {
+      "name": "variable.parameter.screept",
+      "match": "\\b_[0-9]+\\b"
+    },
+    "computed-identifier": {
+      "name": "meta.computed-identifier.screept",
+      "begin": "\\$\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.computed-id.begin.screept" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.computed-id.end.screept" }
+      },
+      "patterns": [
+        { "include": "#strings" },
+        { "include": "#numbers" },
+        { "include": "#operators" },
+        { "include": "#argument-variables" },
+        { "include": "#identifiers" }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.screept",
+          "match": "==|<|>"
+        },
+        {
+          "name": "keyword.operator.arithmetic.screept",
+          "match": "//|[+\\-*/]"
+        },
+        {
+          "name": "keyword.operator.logical.screept",
+          "match": "!"
+        },
+        {
+          "name": "keyword.operator.ternary.screept",
+          "match": "\\?|:"
+        },
+        {
+          "name": "keyword.operator.assignment.screept",
+          "match": "(?<!=)=(?!=)"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.screept",
+          "match": ";"
+        },
+        {
+          "name": "punctuation.separator.comma.screept",
+          "match": ","
+        },
+        {
+          "name": "punctuation.section.parens.begin.screept",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.screept",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.section.block.begin.screept",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.block.end.screept",
+          "match": "\\}"
+        }
+      ]
+    },
+    "identifiers": {
+      "name": "variable.other.screept",
+      "match": "\\b[a-z_][a-zA-Z_0-9]*\\b"
+    }
+  }
+}

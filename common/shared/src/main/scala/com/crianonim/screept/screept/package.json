@@ -1,0 +1,25 @@
+{
+  "name": "screept",
+  "displayName": "screept",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.110.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "screept",
+      "aliases": ["Screept", "screept"],
+      "extensions": [".screept"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "screept",
+      "scopeName": "source.screept",
+      "path": "./syntaxes/screept.tmLanguage.json"
+    }]
+  }
+}
