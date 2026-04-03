@@ -5,8 +5,11 @@ import fastparse.NoWhitespace._
 
 object Parser:
   // ============ WHITESPACE HANDLING ============
-  private def ws[$: P]: P[Unit] = P(CharsWhileIn(" \t\r\n", 0))
-  private def ws1[$: P]: P[Unit] = P(CharsWhileIn(" \t\r\n", 1))
+  private def ws[$: P]: P[Unit] = P(CharsWhileIn(" \t", 0))
+  private def ws1[$: P]: P[Unit] = P(CharsWhileIn(" \t", 1))
+  private def wsn[$: P]: P[Unit] = P(CharsWhileIn(" \t\r\n", 0))
+  private def wsn1[$: P]: P[Unit] = P(CharsWhileIn(" \t\r\n", 1))
+  private def stmtSep[$: P]: P[Unit] = P(ws ~ (";" | "\r\n" | "\n") ~ wsn)
 
   // ============ BASIC TOKENS ============
   private def number[$: P]: P[Double] =
@@ -23,7 +26,7 @@ object Parser:
     P(identifierName).map(LiteralId.apply)
 
   private def computedId[$: P]: P[ComputedId] =
-    P("$[" ~ ws ~ conditionalExpr ~ ws ~ "]").map(ComputedId.apply)
+    P("$[" ~ wsn ~ conditionalExpr ~ wsn ~ "]").map(ComputedId.apply)
 
   private def identifier[$: P]: P[Identifier] =
     P(computedId | literalId)
@@ -44,7 +47,7 @@ object Parser:
   private def atom[$: P]: P[Expression] =
     P(
       // Parenthesized expression (must be before function call)
-      ("(" ~ ws ~ conditionalExpr ~ ws ~ ")").map(Parens.apply) |
+      ("(" ~ wsn ~ conditionalExpr ~ wsn ~ ")").map(Parens.apply) |
         // FUNC literal
         funcValue.map(Literal.apply) |
         // String literal (must be before identifier)
@@ -52,7 +55,7 @@ object Parser:
         // Number literal
         numberValue.map(Literal.apply) |
         // Function call: identifier(args)
-        (identifier ~ ws ~ "(" ~ ws ~ argList.? ~ ws ~ ")").map { case (id, args) =>
+        (identifier ~ ws ~ "(" ~ wsn ~ argList.? ~ wsn ~ ")").map { case (id, args) =>
           FunCall(id, args.getOrElse(Nil))
         } |
         // Variable reference
@@ -60,7 +63,7 @@ object Parser:
     )
 
   private def argList[$: P]: P[List[Expression]] =
-    P(conditionalExpr.rep(sep = ws ~ "," ~ ws)).map(_.toList)
+    P(conditionalExpr.rep(sep = wsn ~ "," ~ wsn)).map(_.toList)
 
   // Unary: +x, -x, !x
   private def unaryExpr[$: P]: P[Expression] =
@@ -77,7 +80,7 @@ object Parser:
 
   // Factor: *, /, //
   private def factorExpr[$: P]: P[Expression] =
-    P(unaryExpr ~ (ws ~ ("//".! | "/".! | "*".!) ~ ws ~ unaryExpr).rep).map { case (first, rest) =>
+    P(unaryExpr ~ (wsn ~ ("//".! | "/".! | "*".!) ~ wsn ~ unaryExpr).rep).map { case (first, rest) =>
       rest.foldLeft(first) { case (left, (op, right)) =>
         val opType = op match
           case "*"  => BinaryOperator.Mul
@@ -89,7 +92,7 @@ object Parser:
 
   // Term: +, -
   private def termExpr[$: P]: P[Expression] =
-    P(factorExpr ~ (ws ~ ("+".! | "-".!) ~ ws ~ factorExpr).rep).map { case (first, rest) =>
+    P(factorExpr ~ (wsn ~ ("+".! | "-".!) ~ wsn ~ factorExpr).rep).map { case (first, rest) =>
       rest.foldLeft(first) { case (left, (op, right)) =>
         val opType = op match
           case "+" => BinaryOperator.Add
@@ -100,7 +103,7 @@ object Parser:
 
   // Comparison: ==, <, >
   private def comparisonExpr[$: P]: P[Expression] =
-    P(termExpr ~ (ws ~ ("==".! | "<".! | ">".!) ~ ws ~ termExpr).rep).map { case (first, rest) =>
+    P(termExpr ~ (wsn ~ ("==".! | "<".! | ">".!) ~ wsn ~ termExpr).rep).map { case (first, rest) =>
       rest.foldLeft(first) { case (left, (op, right)) =>
         val opType = op match
           case "==" => BinaryOperator.Eq
@@ -113,7 +116,7 @@ object Parser:
   // Conditional: cond ? onTrue : onFalse
   private def conditionalExpr[$: P]: P[Expression] =
     P(
-      (comparisonExpr ~ ws ~ "?" ~ ws ~ conditionalExpr ~ ws ~ ":" ~ ws ~ conditionalExpr).map {
+      (comparisonExpr ~ wsn ~ "?" ~ wsn ~ conditionalExpr ~ wsn ~ ":" ~ wsn ~ conditionalExpr).map {
         case (cond, onTrue, onFalse) => Condition(cond, onTrue, onFalse)
       } |
         comparisonExpr
@@ -133,17 +136,17 @@ object Parser:
     }
 
   private def blockStmt[$: P]: P[Statement] =
-    P("{" ~ ws ~ statement.rep(sep = ws ~ ";" ~ ws) ~ ws ~ ";".? ~ ws ~ "}").map { stmts =>
+    P("{" ~ wsn ~ statement.rep(sep = stmtSep) ~ wsn ~ ";".? ~ wsn ~ "}").map { stmts =>
       Block(stmts.toList)
     }
 
   private def procDefStmt[$: P]: P[Statement] =
-    P("PROC" ~ ws1 ~ identifier ~ ws1 ~ statement).map { case (id, stmt) =>
+    P("PROC" ~ ws1 ~ identifier ~ wsn1 ~ statement).map { case (id, stmt) =>
       ProcDef(id, stmt)
     }
 
   private def procRunStmt[$: P]: P[Statement] =
-    P("RUN" ~ ws1 ~ identifier ~ ws ~ "(" ~ ws ~ argList.? ~ ws ~ ")").map { case (id, args) =>
+    P("RUN" ~ ws1 ~ identifier ~ ws ~ "(" ~ wsn ~ argList.? ~ wsn ~ ")").map { case (id, args) =>
       ProcRun(id, args.getOrElse(Nil))
     }
 
@@ -154,8 +157,8 @@ object Parser:
 
   private def ifStmt[$: P]: P[Statement] =
     P(
-      "IF" ~ ws1 ~ conditionalExpr ~ ws1 ~ "THEN" ~ ws1 ~ statement ~
-        (ws1 ~ "ELSE" ~ ws1 ~ statement).?
+      "IF" ~ ws1 ~ conditionalExpr ~ wsn1 ~ "THEN" ~ wsn1 ~ statement ~
+        (wsn1 ~ "ELSE" ~ wsn1 ~ statement).?
     ).map { case (cond, thenS, elseS) =>
       If(cond, thenS, elseS)
     }
@@ -172,9 +175,9 @@ object Parser:
         bindStmt
     )
 
-  // Multiple statements separated by semicolons
+  // Multiple statements separated by semicolons or newlines
   private def program[$: P]: P[Statement] =
-    P(ws ~ statement.rep(sep = ws ~ ";" ~ ws, min = 1) ~ ws ~ ";".? ~ ws ~ End).map { stmts =>
+    P(wsn ~ statement.rep(sep = stmtSep, min = 1) ~ wsn ~ ";".? ~ wsn ~ End).map { stmts =>
       if stmts.size == 1 then stmts.head
       else Block(stmts.toList)
     }
@@ -182,7 +185,7 @@ object Parser:
   // ============ PUBLIC API ============
 
   private def expressionParser[$: P]: P[Expression] =
-    P(ws ~ conditionalExpr ~ ws ~ End)
+    P(wsn ~ conditionalExpr ~ wsn ~ End)
 
   def parseExpression(input: String): Either[String, Expression] =
     parse(input, expressionParser(using _)) match

@@ -428,6 +428,46 @@ class ParserTest extends FunSuite:
     val result = Parser.parseStatement("x = 1; y = 2;")
     assert(result.isRight)
 
+  test("parse multiple statements separated by newlines"):
+    val result = Parser.parseStatement("x = 1\ny = 2\nPRINT x + y")
+    assert(result.isRight)
+    result.foreach {
+      case Block(stmts) => assertEquals(stmts.length, 3)
+      case _ => fail("Expected Block")
+    }
+
+  test("parse statements with mixed semicolons and newlines"):
+    val result = Parser.parseStatement("x = 1; y = 2\nPRINT x + y")
+    assert(result.isRight)
+    result.foreach {
+      case Block(stmts) => assertEquals(stmts.length, 3)
+      case _ => fail("Expected Block")
+    }
+
+  test("parse statements with blank lines between"):
+    val result = Parser.parseStatement("x = 1\n\ny = 2")
+    assert(result.isRight)
+    result.foreach {
+      case Block(stmts) => assertEquals(stmts.length, 2)
+      case _ => fail("Expected Block")
+    }
+
+  test("parse block with newline-separated statements"):
+    val result = Parser.parseStatement("{\n  x = 1\n  y = 2\n}")
+    assert(result.isRight)
+    result.foreach {
+      case Block(stmts) => assertEquals(stmts.length, 2)
+      case _ => fail("Expected Block")
+    }
+
+  test("parse IF THEN ELSE across lines"):
+    val result = Parser.parseStatement("IF x > 5\nTHEN PRINT \"big\"\nELSE PRINT \"small\"")
+    assert(result.isRight)
+
+  test("parse PROC with body on next line"):
+    val result = Parser.parseStatement("PROC greet\n  PRINT \"hello\"")
+    assert(result.isRight)
+
   // ============ COMPLEX EXPRESSIONS ============
 
   test("parse complex nested expression"):
@@ -452,7 +492,11 @@ class ParserTest extends FunSuite:
     val result = Parser.parseExpression("1+2*3")
     assert(result.isRight)
 
-  test("parse expression with newlines"):
+  test("parse expression with newlines in parens"):
+    val result = Parser.parseExpression("(1\n+\n2)")
+    assert(result.isRight)
+
+  test("parse expression spanning newlines with operator"):
     val result = Parser.parseExpression("1\n+\n2")
     assert(result.isRight)
 
