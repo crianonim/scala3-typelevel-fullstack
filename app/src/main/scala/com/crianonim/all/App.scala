@@ -5,12 +5,14 @@ import scala.scalajs.js.annotation.*
 import cats.effect.*
 import tyrian.*
 import tyrian.Html.*
+import tyrian.Nav
 //import io.circe.syntax.*
 import com.crianonim.tables.TablesApp
 import com.crianonim.dnd.DiceRoll
 import com.crianonim.timelines.TimelinesApp
 import com.crianonim.ui.Preview
 import com.crianonim.ui.SectionTabs
+import com.crianonim.screept.ScreeptApp
 enum Msg {
   case NoMsg
   case NavigateTo(nav: Page)
@@ -18,6 +20,7 @@ enum Msg {
   case UpdateDiceRollApp(tMsg: DiceRoll.Msg)
   case UpdateTimelines(tMsg: TimelinesApp.Msg)
   case UpdatePreview(tMsg: Preview.Msg)
+  case UpdateScreept(tMsg: ScreeptApp.Msg)
 }
 
 case class Model(
@@ -25,11 +28,21 @@ case class Model(
     tables: TablesApp.Model,
     diceRoll: DiceRoll.Model,
     timelines: TimelinesApp.Model,
-    preview: Preview.Model
+    preview: Preview.Model,
+    screept: ScreeptApp.Model
 )
 
 @JSExportTopLevel("AllApp")
 object App extends TyrianIOApp[Msg, Model] {
+
+  private def pageToPath(page: Page): String = page match {
+    case Page.MainPage      => "/"
+    case Page.TablesPage    => "/tables"
+    case Page.DiceRollPage  => "/roll"
+    case Page.TimelinesPage => "/timelines"
+    case Page.PreviewPage   => "/preview"
+    case Page.ScreeptPage   => "/screept"
+  }
 
   private def pageToTabId(page: Page): String = page match {
     case Page.MainPage      => "main"
@@ -37,6 +50,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case Page.DiceRollPage  => "roll"
     case Page.TimelinesPage => "timelines"
     case Page.PreviewPage   => "preview"
+    case Page.ScreeptPage   => "screept"
   }
 
   private def tabIdToPage(tabId: String): Page = tabId match {
@@ -45,6 +59,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case "roll"      => Page.DiceRollPage
     case "timelines" => Page.TimelinesPage
     case "preview"   => Page.PreviewPage
+    case "screept"   => Page.ScreeptPage
     case _           => Page.MainPage
   }
 
@@ -56,6 +71,7 @@ object App extends TyrianIOApp[Msg, Model] {
         case "/roll"      => Msg.NavigateTo(Page.DiceRollPage)
         case "/timelines" => Msg.NavigateTo(Page.TimelinesPage)
         case "/preview"   => Msg.NavigateTo(Page.PreviewPage)
+        case "/screept"   => Msg.NavigateTo(Page.ScreeptPage)
         case _            => Msg.NoMsg
     case loc: Location.External =>
       Msg.NoMsg
@@ -65,7 +81,8 @@ object App extends TyrianIOApp[Msg, Model] {
     val diceRollModel  = DiceRoll.init
     val timelinesModel = TimelinesApp.init
     val previewModel   = Preview.init
-    (Model(Page.MainPage, tablesModel, diceRollModel, timelinesModel, previewModel), Cmd.None)
+    val screeptModel   = ScreeptApp.init
+    (Model(Page.MainPage, tablesModel, diceRollModel, timelinesModel, previewModel, screeptModel), Cmd.None)
 
   override def view(model: Model): Html[Msg] =
     div(cls := "flex flex-col gap-2 p-10")(
@@ -76,7 +93,8 @@ object App extends TyrianIOApp[Msg, Model] {
             SectionTabs.TabItem("tables", "X Tables"),
             SectionTabs.TabItem("roll", "Roll"),
             SectionTabs.TabItem("timelines", "Timelines 2"),
-            SectionTabs.TabItem("preview", "Preview")
+            SectionTabs.TabItem("preview", "Preview"),
+            SectionTabs.TabItem("screept", "Screept")
           ),
           activeTabId = pageToTabId(model.page),
           onTabClick = tabId => Msg.NavigateTo(tabIdToPage(tabId))
@@ -89,6 +107,7 @@ object App extends TyrianIOApp[Msg, Model] {
           case Page.DiceRollPage  => DiceRoll.view(model.diceRoll).map(Msg.UpdateDiceRollApp.apply)
           case Page.TimelinesPage => TimelinesApp.view(model.timelines).map(Msg.UpdateTimelines.apply)
           case Page.PreviewPage   => Preview.view(model.preview).map(Msg.UpdatePreview.apply)
+          case Page.ScreeptPage   => ScreeptApp.view(model.screept).map(Msg.UpdateScreept.apply)
         }
       )
     )
@@ -99,7 +118,7 @@ object App extends TyrianIOApp[Msg, Model] {
       val (tablesModel, tablesCmd) = TablesApp.update(model.tables)(tMsg)
       (model.copy(tables = tablesModel), tablesCmd.map(Msg.UpdateTablesApp.apply))
     case Msg.NavigateTo(page) =>
-      (model.copy(page = page), Cmd.None)
+      (model.copy(page = page), Nav.pushUrl(pageToPath(page)))
     case Msg.UpdateDiceRollApp(drMsg) =>
       val (drModel, drCmd) = DiceRoll.update(model.diceRoll)(drMsg)
       (model.copy(diceRoll = drModel), drCmd.map(Msg.UpdateDiceRollApp.apply))
@@ -109,6 +128,9 @@ object App extends TyrianIOApp[Msg, Model] {
     case Msg.UpdatePreview(pMsg) =>
       val (previewModel, previewCmd) = Preview.update(model.preview)(pMsg)
       (model.copy(preview = previewModel), previewCmd.map(Msg.UpdatePreview.apply))
+    case Msg.UpdateScreept(sMsg) =>
+      val (screeptModel, screeptCmd) = ScreeptApp.update(model.screept)(sMsg)
+      (model.copy(screept = screeptModel), screeptCmd.map(Msg.UpdateScreept.apply))
   }
 
   override def subscriptions(model: Model): Sub[IO, Msg] =
@@ -116,4 +138,4 @@ object App extends TyrianIOApp[Msg, Model] {
 }
 
 enum Page:
-  case MainPage, TablesPage, DiceRollPage, TimelinesPage, PreviewPage
+  case MainPage, TablesPage, DiceRollPage, TimelinesPage, PreviewPage, ScreeptPage

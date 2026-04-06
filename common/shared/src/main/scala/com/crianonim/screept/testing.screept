@@ -1,0 +1,26 @@
+_max = FUNC (_0 >_1) ? _0 : _1
+
+PROC _arr_create {
+  $["__arr_"+_0] = 0
+}
+
+PROC _arr_add {
+  $["__arr_"+_0 + "_" + $["__arr_"+_0] ] = _1
+  $["__arr_"+_0] = $["__arr_"+_0] + 1
+}
+
+_arr_get = FUNC $["__arr_"+_0 + "_" +_1]
+
+PROC _arr_set {
+   $["__arr_"+_0 + "_" +_1] = _2
+   $["__arr_"+_0] = _max($["__arr_"+_0],_1+1)
+}
+
+
+RUN _arr_create("field")
+RUN _arr_add("field",10)
+PRINT _arr_get("field",0)
+RUN _arr_set("field",1,20)
+RUN _arr_set("field",3,24)
+RUN _arr_set("field",2,25)
+PRINT _max(9,-1)
