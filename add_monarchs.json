@@ -1,0 +1,856 @@
+[
+  {
+    "name": "Reign of William I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1066,
+            "month": 12,
+            "day": 25
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1087,
+            "month": 9,
+            "day": 9
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of William II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1087,
+            "month": 9,
+            "day": 26
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1100,
+            "month": 8,
+            "day": 2
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1100,
+            "month": 8,
+            "day": 5
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1135,
+            "month": 12,
+            "day": 1
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Stephen",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1135,
+            "month": 12,
+            "day": 22
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1154,
+            "month": 10,
+            "day": 25
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1154,
+            "month": 12,
+            "day": 19
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1189,
+            "month": 7,
+            "day": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Richard I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1189,
+            "month": 9,
+            "day": 3
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1199,
+            "month": 4,
+            "day": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of John",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1199,
+            "month": 5,
+            "day": 27
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1216,
+            "month": 10,
+            "day": 19
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry III",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1216,
+            "month": 10,
+            "day": 28
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1272,
+            "month": 11,
+            "day": 16
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1272,
+            "month": 11,
+            "day": 20
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1307,
+            "month": 7,
+            "day": 7
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1307,
+            "month": 7,
+            "day": 8
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1327,
+            "month": 1,
+            "day": 20
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward III",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1327,
+            "month": 1,
+            "day": 25
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1377,
+            "month": 6,
+            "day": 21
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Richard II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1377,
+            "month": 6,
+            "day": 22
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1399,
+            "month": 9,
+            "day": 29
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry IV",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1399,
+            "month": 9,
+            "day": 30
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1413,
+            "month": 3,
+            "day": 20
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry V",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1413,
+            "month": 3,
+            "day": 21
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1422,
+            "month": 8,
+            "day": 31
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry VI",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1422,
+            "month": 9,
+            "day": 1
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1461,
+            "month": 3,
+            "day": 4
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward IV",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1461,
+            "month": 3,
+            "day": 4
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1483,
+            "month": 4,
+            "day": 9
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward V",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1483,
+            "month": 4,
+            "day": 9
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1483,
+            "month": 6,
+            "day": 25
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Richard III",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1483,
+            "month": 6,
+            "day": 26
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1485,
+            "month": 8,
+            "day": 22
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry VII",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1485,
+            "month": 8,
+            "day": 22
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1509,
+            "month": 4,
+            "day": 21
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Henry VIII",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1509,
+            "month": 4,
+            "day": 22
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1547,
+            "month": 1,
+            "day": 28
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward VI",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1547,
+            "month": 1,
+            "day": 28
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1553,
+            "month": 7,
+            "day": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Mary I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1553,
+            "month": 7,
+            "day": 19
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1558,
+            "month": 11,
+            "day": 17
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Elizabeth I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1558,
+            "month": 11,
+            "day": 17
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1603,
+            "month": 3,
+            "day": 24
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of James I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1603,
+            "month": 3,
+            "day": 24
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1625,
+            "month": 3,
+            "day": 27
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Charles I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1625,
+            "month": 3,
+            "day": 27
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1649,
+            "month": 1,
+            "day": 30
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Charles II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1660,
+            "month": 5,
+            "day": 29
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1685,
+            "month": 2,
+            "day": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of James II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1685,
+            "month": 2,
+            "day": 6
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1688,
+            "month": 12,
+            "day": 11
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of William III & Mary II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1689,
+            "month": 2,
+            "day": 13
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1702,
+            "month": 3,
+            "day": 8
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Anne",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1702,
+            "month": 3,
+            "day": 8
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1714,
+            "month": 8,
+            "day": 1
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of George I",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1714,
+            "month": 8,
+            "day": 1
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1727,
+            "month": 6,
+            "day": 11
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of George II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1727,
+            "month": 6,
+            "day": 11
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1760,
+            "month": 10,
+            "day": 25
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of George III",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1760,
+            "month": 10,
+            "day": 25
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1820,
+            "month": 1,
+            "day": 29
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of George IV",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1820,
+            "month": 1,
+            "day": 29
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1830,
+            "month": 6,
+            "day": 26
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of William IV",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1830,
+            "month": 6,
+            "day": 26
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1837,
+            "month": 6,
+            "day": 20
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Victoria",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1837,
+            "month": 6,
+            "day": 20
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1901,
+            "month": 1,
+            "day": 22
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward VII",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1901,
+            "month": 1,
+            "day": 22
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1910,
+            "month": 5,
+            "day": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of George V",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1910,
+            "month": 5,
+            "day": 6
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1936,
+            "month": 1,
+            "day": 20
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Edward VIII",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1936,
+            "month": 1,
+            "day": 20
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1936,
+            "month": 12,
+            "day": 11
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of George VI",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1936,
+            "month": 12,
+            "day": 11
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 1952,
+            "month": 2,
+            "day": 6
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Elizabeth II",
+    "period": {
+      "Closed": {
+        "start": {
+          "YearMonthDay": {
+            "year": 1952,
+            "month": 2,
+            "day": 6
+          }
+        },
+        "end": {
+          "YearMonthDay": {
+            "year": 2022,
+            "month": 9,
+            "day": 8
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "Reign of Charles III",
+    "period": {
+      "Started": {
+        "start": {
+          "YearMonthDay": {
+            "year": 2022,
+            "month": 9,
+            "day": 8
+          }
+        }
+      }
+    }
+  }
+]

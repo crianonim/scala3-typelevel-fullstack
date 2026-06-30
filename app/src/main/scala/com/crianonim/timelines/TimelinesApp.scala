@@ -51,9 +51,25 @@ object TimelinesApp {
     case ShowImportExportModal
     case HideImportExportModal
     case ExportTimelines
-    case FileSelected(file: org.scalajs.dom.File)
-    case FileContentLoaded(content: String)
+    case FileSelected(file: org.scalajs.dom.File, merge: Boolean)
+    case FileContentLoaded(content: String, merge: Boolean)
     case ClearImportError
+  }
+
+  // A timeline as it may appear in imported JSON, where `id` is optional and
+  // gets generated on import when absent. Circe treats Option fields as optional.
+  private case class ImportedTimeline(id: Option[String], name: String, period: Period)
+  private given io.circe.Decoder[ImportedTimeline] =
+    io.circe.generic.semiauto.deriveDecoder
+
+  // Generate an id that is not already present in `used`.
+  private def generateUniqueId(used: Set[String]): String = {
+    @annotation.tailrec
+    def loop(): String = {
+      val candidate = s"tl-${System.currentTimeMillis()}-${scala.util.Random.nextInt(1000000)}"
+      if (used.contains(candidate)) loop() else candidate
+    }
+    loop()
   }
 
   val timelines = TimelinesFromJSON.apply
@@ -230,21 +246,41 @@ object TimelinesApp {
       )
       (model, downloadCmd)
 
-    case Msg.FileSelected(file) =>
+    case Msg.FileSelected(file, merge) =>
       // Use FileInput.readFileCmd to read the file and emit FileContentLoaded
-      (model, FileInput.readFileCmd(file)(Msg.FileContentLoaded.apply))
+      (model, FileInput.readFileCmd(file)(Msg.FileContentLoaded(_, merge)))
 
-    case Msg.FileContentLoaded(content) =>
+    case Msg.FileContentLoaded(content, merge) =>
       // Parse JSON and validate
       if (content.isEmpty) {
         (model.copy(importError = Some("Failed to read file")), Cmd.None)
       } else {
-        decode[List[Timeline]](content) match {
-          case Right(timelines) =>
-            if (timelines.isEmpty) {
+        decode[List[ImportedTimeline]](content) match {
+          case Right(imported) =>
+            if (imported.isEmpty) {
               (model.copy(importError = Some("No timelines found in file")), Cmd.None)
             } else {
-              // Replace all timelines with imported ones
+              // Assign ids: entries without one get a freshly generated id that
+              // collides with neither existing timelines nor others in this batch.
+              val existingIds = model.timelines.map(_.id).toSet
+              val withIds = imported
+                .foldLeft((existingIds, List.empty[Timeline])) { case ((used, acc), imp) =>
+                  val id = imp.id.filter(_.nonEmpty).getOrElse(generateUniqueId(used))
+                  (used + id, acc :+ Timeline(id, imp.name, imp.period))
+                }
+                ._2
+              // In merge mode, keep existing timelines and add imported ones,
+              // overriding only when an imported timeline's id matches exactly.
+              val timelines =
+                if (merge)
+                  withIds.foldLeft(model.timelines) { (acc, imp) =>
+                    if (acc.exists(_.id == imp.id))
+                      acc.map(tl => if (tl.id == imp.id) imp else tl)
+                    else
+                      acc :+ imp
+                  }
+                else
+                  withIds
               val newViewport = Viewport.getViewportForTimelines(timelines)
               (
                 model.copy(
@@ -416,18 +452,38 @@ object TimelinesApp {
         Card.simple(Card.Variant.Outlined, Card.Padding.Medium)(
           div(cls := "flex flex-col gap-4")(
             div(cls := "flex flex-col gap-2")(
-              div(cls := "text-lg font-semibold text-gray-800")(text("Import Timelines")),
+              div(cls := "text-lg font-semibold text-gray-800")(text("Import Timelines"))
+            ),
+            // Merge import: keep current timelines, add new ones, override by name
+            div(cls := "flex flex-col gap-2")(
+              div(cls := "font-medium text-sm text-gray-700")(text("Add to current")),
+              div(cls := "text-sm text-gray-600")(
+                text(
+                  "Upload a JSON file to add its timelines to the current ones. " ++
+                    "Timelines with an id matching an existing one are overridden; " ++
+                    "entries without an id get a new one generated."
+                )
+              ),
+              FileInput(
+                Msg.FileSelected(_, merge = true),
+                accept = ".json,application/json",
+                label = Some("Choose JSON file to add")
+              )
+            ),
+            // Replace import: discard all current timelines
+            div(cls := "flex flex-col gap-2 pt-4 border-t border-gray-200")(
+              div(cls := "font-medium text-sm text-gray-700")(text("Replace all")),
               div(cls := "text-sm text-gray-600")(
                 div()(text("Upload a JSON file to replace all current timelines.")),
                 div(cls := "text-orange-600 font-medium mt-1")(
                   text("⚠️ Warning: This will replace all existing timelines!")
                 )
+              ),
+              FileInput(
+                Msg.FileSelected(_, merge = false),
+                accept = ".json,application/json",
+                label = Some("Choose JSON file to replace")
               )
-            ),
-            FileInput(
-              Msg.FileSelected.apply,
-              accept = ".json,application/json",
-              label = Some("Choose JSON file")
             ),
             // Error message display
             model.importError match {
