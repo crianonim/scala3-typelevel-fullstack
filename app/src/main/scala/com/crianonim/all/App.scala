@@ -16,6 +16,7 @@ import com.crianonim.screept.ScreeptApp
 import com.crianonim.gentree.GenTreeApp
 import com.crianonim.dialog.DialogApp
 import com.crianonim.dialoggame.DialogGameApp
+import com.crianonim.shadcn.ShadcnShowcase
 enum Msg {
   case NoMsg
   case NavigateTo(nav: Page)
@@ -27,6 +28,7 @@ enum Msg {
   case UpdateGenTree(tMsg: GenTreeApp.Msg)
   case UpdateDialog(tMsg: DialogApp.Msg)
   case UpdateDialogGame(tMsg: DialogGameApp.Msg)
+  case UpdateShadcn(tMsg: ShadcnShowcase.Msg)
 }
 
 case class Model(
@@ -38,7 +40,8 @@ case class Model(
     screept: ScreeptApp.Model,
     genTree: GenTreeApp.Model,
     dialog: DialogApp.Model,
-    dialogGame: DialogGameApp.Model
+    dialogGame: DialogGameApp.Model,
+    shadcn: ShadcnShowcase.Model
 )
 
 @JSExportTopLevel("AllApp")
@@ -54,6 +57,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case Page.GenTreePage   => "/gentree"
     case Page.DialogPage    => "/dialog"
     case Page.DialogGamePage => "/dialoggame"
+    case Page.ShadcnPage     => "/shadcn"
   }
 
   private def pageToTabId(page: Page): String = page match {
@@ -66,6 +70,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case Page.GenTreePage   => "gentree"
     case Page.DialogPage    => "dialog"
     case Page.DialogGamePage => "dialoggame"
+    case Page.ShadcnPage     => "shadcn"
   }
 
   private def tabIdToPage(tabId: String): Page = tabId match {
@@ -78,6 +83,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case "gentree"   => Page.GenTreePage
     case "dialog"    => Page.DialogPage
     case "dialoggame" => Page.DialogGamePage
+    case "shadcn"    => Page.ShadcnPage
     case _           => Page.MainPage
   }
 
@@ -93,6 +99,7 @@ object App extends TyrianIOApp[Msg, Model] {
         case "/gentree"   => Msg.NavigateTo(Page.GenTreePage)
         case "/dialog"    => Msg.NavigateTo(Page.DialogPage)
         case "/dialoggame" => Msg.NavigateTo(Page.DialogGamePage)
+        case "/shadcn"    => Msg.NavigateTo(Page.ShadcnPage)
         case _            => Msg.NoMsg
     case loc: Location.External =>
       Msg.NoMsg
@@ -106,6 +113,7 @@ object App extends TyrianIOApp[Msg, Model] {
     val genTreeModel   = GenTreeApp.init
     val dialogModel    = DialogApp.init
     val dialogGameModel = DialogGameApp.init
+    val shadcnModel     = ShadcnShowcase.init
     (
       Model(
         Page.MainPage,
@@ -116,7 +124,8 @@ object App extends TyrianIOApp[Msg, Model] {
         screeptModel,
         genTreeModel,
         dialogModel,
-        dialogGameModel
+        dialogGameModel,
+        shadcnModel
       ),
       Cmd.Batch(
         DialogApp.initCmd.map(Msg.UpdateDialog.apply),
@@ -137,7 +146,8 @@ object App extends TyrianIOApp[Msg, Model] {
             SectionTabs.TabItem("screept", "Screept"),
             SectionTabs.TabItem("gentree", "GenTree"),
             SectionTabs.TabItem("dialog", "Dialog"),
-            SectionTabs.TabItem("dialoggame", "Dialog Game")
+            SectionTabs.TabItem("dialoggame", "Dialog Game"),
+            SectionTabs.TabItem("shadcn", "Shadcn")
           ),
           activeTabId = pageToTabId(model.page),
           onTabClick = tabId => Msg.NavigateTo(tabIdToPage(tabId))
@@ -155,6 +165,8 @@ object App extends TyrianIOApp[Msg, Model] {
           case Page.DialogPage    => DialogApp.view(model.dialog).map(Msg.UpdateDialog.apply)
           case Page.DialogGamePage =>
             DialogGameApp.view(model.dialogGame).map(Msg.UpdateDialogGame.apply)
+          case Page.ShadcnPage =>
+            ShadcnShowcase.view(model.shadcn).map(Msg.UpdateShadcn.apply)
         }
       )
     )
@@ -187,6 +199,9 @@ object App extends TyrianIOApp[Msg, Model] {
     case Msg.UpdateDialogGame(dgMsg) =>
       val (dgModel, dgCmd) = DialogGameApp.update(model.dialogGame)(dgMsg)
       (model.copy(dialogGame = dgModel), dgCmd.map(Msg.UpdateDialogGame.apply))
+    case Msg.UpdateShadcn(sMsg) =>
+      val (shadcnModel, shadcnCmd) = ShadcnShowcase.update(model.shadcn)(sMsg)
+      (model.copy(shadcn = shadcnModel), shadcnCmd.map(Msg.UpdateShadcn.apply))
   }
 
   override def subscriptions(model: Model): Sub[IO, Msg] =
@@ -195,4 +210,4 @@ object App extends TyrianIOApp[Msg, Model] {
 
 enum Page:
   case MainPage, TablesPage, DiceRollPage, TimelinesPage, PreviewPage, ScreeptPage,
-    GenTreePage, DialogPage, DialogGamePage
+    GenTreePage, DialogPage, DialogGamePage, ShadcnPage
