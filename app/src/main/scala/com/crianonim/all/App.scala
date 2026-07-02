@@ -14,6 +14,7 @@ import com.crianonim.ui.Preview
 import com.crianonim.ui.SectionTabs
 import com.crianonim.screept.ScreeptApp
 import com.crianonim.gentree.GenTreeApp
+import com.crianonim.dialog.DialogApp
 enum Msg {
   case NoMsg
   case NavigateTo(nav: Page)
@@ -23,6 +24,7 @@ enum Msg {
   case UpdatePreview(tMsg: Preview.Msg)
   case UpdateScreept(tMsg: ScreeptApp.Msg)
   case UpdateGenTree(tMsg: GenTreeApp.Msg)
+  case UpdateDialog(tMsg: DialogApp.Msg)
 }
 
 case class Model(
@@ -32,7 +34,8 @@ case class Model(
     timelines: TimelinesApp.Model,
     preview: Preview.Model,
     screept: ScreeptApp.Model,
-    genTree: GenTreeApp.Model
+    genTree: GenTreeApp.Model,
+    dialog: DialogApp.Model
 )
 
 @JSExportTopLevel("AllApp")
@@ -46,6 +49,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case Page.PreviewPage   => "/preview"
     case Page.ScreeptPage   => "/screept"
     case Page.GenTreePage   => "/gentree"
+    case Page.DialogPage    => "/dialog"
   }
 
   private def pageToTabId(page: Page): String = page match {
@@ -56,6 +60,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case Page.PreviewPage   => "preview"
     case Page.ScreeptPage   => "screept"
     case Page.GenTreePage   => "gentree"
+    case Page.DialogPage    => "dialog"
   }
 
   private def tabIdToPage(tabId: String): Page = tabId match {
@@ -66,6 +71,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case "preview"   => Page.PreviewPage
     case "screept"   => Page.ScreeptPage
     case "gentree"   => Page.GenTreePage
+    case "dialog"    => Page.DialogPage
     case _           => Page.MainPage
   }
 
@@ -79,6 +85,7 @@ object App extends TyrianIOApp[Msg, Model] {
         case "/preview"   => Msg.NavigateTo(Page.PreviewPage)
         case "/screept"   => Msg.NavigateTo(Page.ScreeptPage)
         case "/gentree"   => Msg.NavigateTo(Page.GenTreePage)
+        case "/dialog"    => Msg.NavigateTo(Page.DialogPage)
         case _            => Msg.NoMsg
     case loc: Location.External =>
       Msg.NoMsg
@@ -90,7 +97,20 @@ object App extends TyrianIOApp[Msg, Model] {
     val previewModel   = Preview.init
     val screeptModel   = ScreeptApp.init
     val genTreeModel   = GenTreeApp.init
-    (Model(Page.MainPage, tablesModel, diceRollModel, timelinesModel, previewModel, screeptModel, genTreeModel), Cmd.None)
+    val dialogModel    = DialogApp.init
+    (
+      Model(
+        Page.MainPage,
+        tablesModel,
+        diceRollModel,
+        timelinesModel,
+        previewModel,
+        screeptModel,
+        genTreeModel,
+        dialogModel
+      ),
+      DialogApp.initCmd.map(Msg.UpdateDialog.apply)
+    )
 
   override def view(model: Model): Html[Msg] =
     div(cls := "flex flex-col gap-2 p-10")(
@@ -103,7 +123,8 @@ object App extends TyrianIOApp[Msg, Model] {
             SectionTabs.TabItem("timelines", "Timelines 2"),
             SectionTabs.TabItem("preview", "Preview"),
             SectionTabs.TabItem("screept", "Screept"),
-            SectionTabs.TabItem("gentree", "GenTree")
+            SectionTabs.TabItem("gentree", "GenTree"),
+            SectionTabs.TabItem("dialog", "Dialog")
           ),
           activeTabId = pageToTabId(model.page),
           onTabClick = tabId => Msg.NavigateTo(tabIdToPage(tabId))
@@ -118,6 +139,7 @@ object App extends TyrianIOApp[Msg, Model] {
           case Page.PreviewPage   => Preview.view(model.preview).map(Msg.UpdatePreview.apply)
           case Page.ScreeptPage   => ScreeptApp.view(model.screept).map(Msg.UpdateScreept.apply)
           case Page.GenTreePage   => GenTreeApp.view(model.genTree).map(Msg.UpdateGenTree.apply)
+          case Page.DialogPage    => DialogApp.view(model.dialog).map(Msg.UpdateDialog.apply)
         }
       )
     )
@@ -144,6 +166,9 @@ object App extends TyrianIOApp[Msg, Model] {
     case Msg.UpdateGenTree(gMsg) =>
       val (gtModel, gtCmd) = GenTreeApp.update(model.genTree)(gMsg)
       (model.copy(genTree = gtModel), gtCmd.map(Msg.UpdateGenTree.apply))
+    case Msg.UpdateDialog(dMsg) =>
+      val (dialogModel, dialogCmd) = DialogApp.update(model.dialog)(dMsg)
+      (model.copy(dialog = dialogModel), dialogCmd.map(Msg.UpdateDialog.apply))
   }
 
   override def subscriptions(model: Model): Sub[IO, Msg] =
@@ -152,4 +177,4 @@ object App extends TyrianIOApp[Msg, Model] {
 
 enum Page:
   case MainPage, TablesPage, DiceRollPage, TimelinesPage, PreviewPage, ScreeptPage,
-    GenTreePage
+    GenTreePage, DialogPage
