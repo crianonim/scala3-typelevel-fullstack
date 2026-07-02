@@ -389,23 +389,23 @@ object DialogApp {
   // ============ DRAFT <-> AST ============
 
   private def toDraft(d: Dialog): DialogDraft =
-    DialogDraft(d.id, ScreeptSource.expr(d.text), d.options.map(toOptionDraft))
+    DialogDraft(d.id, ScreeptPrinter.expr(d.text), d.options.map(toOptionDraft))
 
   private def toOptionDraft(o: DialogOption): OptionDraft =
     OptionDraft(
       o.id,
-      ScreeptSource.expr(o.text),
-      o.condition.map(ScreeptSource.expr).getOrElse(""),
+      ScreeptPrinter.expr(o.text),
+      o.condition.map(ScreeptPrinter.expr).getOrElse(""),
       o.actions.map(toActionDraft)
     )
 
   private def toActionDraft(a: DialogAction): ActionDraft = a match
     case GoBack(id)            => ActionDraft.GoBackD(id)
     case GoDialog(id, dest)    => ActionDraft.GoDialogD(id, dest)
-    case MsgAction(id, v)      => ActionDraft.MsgD(id, ScreeptSource.expr(v))
-    case ScreeptAction(id, v)  => ActionDraft.ScreeptD(id, ScreeptSource.stmt(v))
+    case MsgAction(id, v)      => ActionDraft.MsgD(id, ScreeptPrinter.expr(v))
+    case ScreeptAction(id, v)  => ActionDraft.ScreeptD(id, ScreeptPrinter.stmt(v))
     case Conditional(id, c, t, e) =>
-      ActionDraft.ConditionalD(id, ScreeptSource.expr(c), t.map(toActionDraft), e.map(toActionDraft))
+      ActionDraft.ConditionalD(id, ScreeptPrinter.expr(c), t.map(toActionDraft), e.map(toActionDraft))
     case BlockAction(id, as) => ActionDraft.BlockD(id, as.map(toActionDraft))
 
   private def fromDraft(d: DialogDraft): Either[String, Dialog] =
@@ -788,60 +788,4 @@ object DialogApp {
         screeptEnv = Environment(vars = Map("gold" -> NumberValue(0)))
       )
     )
-}
-
-/** Renders Screept AST back to source parseable by `com.crianonim.screept.Parser`.
-  * Binary/conditional expressions are fully parenthesized so round-trips are precedence-safe.
-  */
-private object ScreeptSource {
-
-  def expr(e: Expression): String = e match
-    case Literal(v)          => value(v)
-    case Var(id)             => ident(id)
-    case Parens(inner)       => s"(${expr(inner)})"
-    case UnaryOp(op, x)      => s"${unary(op)}${atom(x)}"
-    case BinaryOp(op, x, y)  => s"(${expr(x)} ${binary(op)} ${expr(y)})"
-    case Condition(c, t, f)  => s"(${expr(c)} ? ${expr(t)} : ${expr(f)})"
-    case FunCall(id, args)   => s"${ident(id)}(${args.map(expr).mkString(", ")})"
-
-  // Wrap in parens unless already atomic, so unary operands stay well-formed.
-  private def atom(e: Expression): String = e match
-    case _: Literal | _: Var | _: FunCall | _: Parens => expr(e)
-    case _                                            => s"(${expr(e)})"
-
-  private def value(v: Value): String = v match
-    case NumberValue(x) => if x == x.toLong then x.toLong.toString else x.toString
-    case TextValue(s)   => "\"" + s + "\""
-    case FuncValue(b)   => s"FUNC ${expr(b)}"
-
-  private def ident(id: Identifier): String = id match
-    case LiteralId(name) => name
-    case ComputedId(e)   => s"$$[${expr(e)}]"
-
-  private def unary(op: UnaryOperator): String = op match
-    case UnaryOperator.Plus  => "+"
-    case UnaryOperator.Minus => "-"
-    case UnaryOperator.Not   => "!"
-
-  private def binary(op: BinaryOperator): String = op match
-    case BinaryOperator.Add    => "+"
-    case BinaryOperator.Sub    => "-"
-    case BinaryOperator.Mul    => "*"
-    case BinaryOperator.Div    => "/"
-    case BinaryOperator.IntDiv => "//"
-    case BinaryOperator.Eq     => "=="
-    case BinaryOperator.Lt     => "<"
-    case BinaryOperator.Gt     => ">"
-
-  def stmt(s: Statement): String = s match
-    case Bind(id, v)          => s"${ident(id)} = ${expr(v)}"
-    case Print(v)             => s"PRINT ${expr(v)}"
-    case Emit(v)              => s"EMIT ${expr(v)}"
-    case Block(stmts)         => s"{ ${stmts.map(stmt).mkString("; ")} }"
-    case ProcDef(id, body)    => s"PROC ${ident(id)} ${stmt(body)}"
-    case ProcRun(id, args)    => s"RUN ${ident(id)}(${args.map(expr).mkString(", ")})"
-    case RandomStmt(id, f, to) => s"RND ${ident(id)} ${expr(f)} ${expr(to)}"
-    case If(c, thenS, elseS) =>
-      val base = s"IF ${expr(c)} THEN ${stmt(thenS)}"
-      elseS.fold(base)(e => s"$base ELSE ${stmt(e)}")
 }
