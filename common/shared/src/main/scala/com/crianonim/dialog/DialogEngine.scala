@@ -6,10 +6,15 @@ import cats.effect.std.Random
 import cats.syntax.all.*
 
 import com.crianonim.screept.{
+  Bind,
   Environment,
   EvaluationError,
   Evaluator,
   Expression,
+  FunCall,
+  Literal,
+  LiteralId,
+  NumberValue,
   Screept,
   Statement
 }
@@ -74,16 +79,56 @@ object DialogEngine:
   ): EitherT[F, EvaluationError, GameState] =
     actions.foldLeftM(state)((s, a) => executeAction(s, a))
 
-  /** Keep only options with no condition, or whose condition evaluates truthy. */
+  /** Keep only options with no condition, or whose condition evaluates truthy.
+    *
+    * Mirrors the TS `getVisibleOptions`: when the environment defines `_specialOption` with a
+    * value other than `"0"`, a synthetic "Menu" option is appended whose actions clear
+    * `_specialOption` and jump to the dialog named by its value.
+    */
   def getVisibleOptions[F[_]: Monad: Random](
       options: List[DialogOption],
       env: Environment
   ): EitherT[F, EvaluationError, List[DialogOption]] =
-    options.filterA { opt =>
+    val withSpecial = specialOption(env).fold(options)(options :+ _)
+    withSpecial.filterA { opt =>
       opt.condition match
         case None       => EitherT.pure(true)
         case Some(cond) => EitherT(Screept.eval[F](cond, env)).map(Evaluator.isTruthy)
     }
+
+  private def specialOption(env: Environment): Option[DialogOption] =
+    env.vars.get("_specialOption").map(Evaluator.getStringValue).filter(_ != "0").map { destination =>
+      DialogOption(
+        id = s"special-${System.currentTimeMillis()}",
+        text = Screept.litText("Menu"),
+        condition = None,
+        actions = List(
+          ScreeptAction(
+            s"special-clear-${System.currentTimeMillis()}",
+            Bind(LiteralId("_specialOption"), Literal(NumberValue(0)))
+          ),
+          GoDialog(s"special-go-${System.currentTimeMillis()}", destination)
+        )
+      )
+    }
+
+  /** If the environment defines a `__statusLine` procedure/function, evaluate `__statusLine()` and
+    * return its string value; otherwise `None`. Mirrors the TS `getStatusLine`.
+    */
+  def getStatusLine[F[_]: Monad: Random](
+      env: Environment
+  ): EitherT[F, EvaluationError, Option[String]] =
+    if env.vars.contains("__statusLine") then
+      EitherT(Screept.eval[F](FunCall(LiteralId("__statusLine"), Nil), env))
+        .map(v => Some(Evaluator.getStringValue(v)))
+    else EitherT.pure(None)
+
+  /** Evaluate an expression to a string and split it on the `<nl>` marker (mirrors TS). */
+  def getSplitStringOnNL[F[_]: Monad: Random](
+      expr: Expression,
+      env: Environment
+  ): EitherT[F, EvaluationError, List[String]] =
+    EitherT(Screept.eval[F](expr, env)).map(v => Evaluator.getStringValue(v).split("<nl>").toList)
 
   // ============ PURE EDITOR HELPERS ============
 
@@ -140,3 +185,15 @@ object DialogEngine:
       dialogs = Map(dialog.id -> dialog),
       gameState = GameState(dialogStack = List(dialog.id), screeptEnv = Environment())
     )
+
+  // ============ LIST REORDERING ============
+
+  /** Swap element `i` with its predecessor; no-op if out of range or already first. */
+  def moveUp[A](xs: List[A], i: Int): List[A] =
+    if i <= 0 || i >= xs.length then xs
+    else xs.updated(i - 1, xs(i)).updated(i, xs(i - 1))
+
+  /** Swap element `i` with its successor; no-op if out of range or already last. */
+  def moveDown[A](xs: List[A], i: Int): List[A] =
+    if i < 0 || i >= xs.length - 1 then xs
+    else xs.updated(i, xs(i + 1)).updated(i + 1, xs(i))
