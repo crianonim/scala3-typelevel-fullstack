@@ -58,6 +58,6 @@ object Application extends IOApp.Simple {
 
   override def run: IO[Unit] =
     makeServer.use(_ =>
-      IO.println("Crianonim Server ready. Test localhost:4041/tables.") *> IO.never
+      IO.println("Crianonim Server ready. Test localhost:8080/tables.") *> IO.never
     )
 }

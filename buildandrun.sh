@@ -11,5 +11,5 @@ cd ..
 sbt "server / assembly"
 docker build  --no-cache . -t scalafullstack
 
-docker run -d -p 8080:4041 scalafullstack
+docker run -d -p 8080:8080 scalafullstack
 
