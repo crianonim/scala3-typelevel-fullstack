@@ -174,3 +174,9 @@ app/dist-staging
 metals.sbt
 
 .idea/
+
+### Local environment / secrets
+# .env.local holds real database credentials. Never commit it; copy .env.example and edit that.
+.env
+.env.*
+!.env.example

@@ -2,8 +2,6 @@ package com.crianonim.tables
 
 import cats.effect.*
 import cats.implicits.*
-import doobie.util.ExecutionContexts
-import doobie.hikari.HikariTransactor
 import com.comcast.ip4s.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.middleware.{CORS, CORSPolicy}
@@ -11,21 +9,10 @@ import org.http4s.server.staticcontent.*
 import com.crianonim.tables.core.*
 import com.crianonim.tables.http.*
 import org.http4s.HttpRoutes
-import org.http4s.dsl.Http4sDsl
-import org.http4s.StaticFile
 import org.http4s.Response
+import org.http4s.StaticFile
 
 object Application extends IOApp.Simple {
-  def makePostgres: Resource[IO, HikariTransactor[IO]] = for {
-    ec <- ExecutionContexts.fixedThreadPool[IO](32)
-    transactor <- HikariTransactor.newHikariTransactor[IO](
-      "org.postgresql.Driver",
-      "jdbc:postgresql://localhost:5444/",
-      "docker",
-      "docker",
-      ec
-    )
-  } yield transactor
   // Serve static files from the dist directory
   val staticFiles: HttpRoutes[IO] = fileService(FileService.Config("./app/dist"))
 
@@ -41,20 +28,41 @@ object Application extends IOApp.Simple {
   // This will first try to serve static files, and if not found, serve index.html
   val web: HttpRoutes[IO] = staticFiles <+> fallbackRoute
 
+  /** The JSON API, backed by Postgres.
+    *
+    * A database outage must not take the other nine tabs offline, so a failure to reach Postgres
+    * is logged loudly and downgraded to "no API" rather than aborting startup.
+    */
+  val api: Resource[IO, HttpRoutes[IO]] =
+    DbConfig.load()
+      .toResource
+      .evalMap(cfg => IO.println(s"Connecting to Postgres at ${cfg.describe}").as(cfg))
+      .flatMap(cfg => Db.transactor(cfg).evalMap(tx => Db.check(tx).as(tx)))
+      .flatMap { tx =>
+        for
+          tables <- TablesLive.resource[IO](tx)
+          routes <- TablesRoutes.resource[IO](tables)
+        yield routes.routes
+      }
+      .handleErrorWith { e =>
+        val warn = IO.println(
+          s"WARNING: Postgres unavailable, /tables disabled -> ${Db.describeCause(e)}"
+        )
+        Resource.eval(warn).as(HttpRoutes.empty[IO])
+      }
+
   val corsPolicy: CORSPolicy = CORS.policy.withAllowOriginAll
     .withAllowCredentials(false)
-  def makeServer = for {
-    // postgres  <- makePostgres
-    // tables    <- TablesLive.resource[IO](postgres)
-    // tablesApi <- TablesRoutes.resource[IO](tables)
-
+  def makeServer = for
+    api    <- api
     server <- EmberServerBuilder
       .default[IO]
       .withHost(host"0.0.0.0")
       .withPort(port"8080")
-      .withHttpApp(corsPolicy((web).orNotFound))
+      // `api` must come first: `web`'s index.html fallback would otherwise swallow /tables.
+      .withHttpApp(corsPolicy(api <+> web).orNotFound)
       .build
-  } yield server
+  yield server
 
   override def run: IO[Unit] =
     makeServer.use(_ =>

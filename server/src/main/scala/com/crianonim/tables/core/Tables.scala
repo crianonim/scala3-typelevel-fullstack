@@ -3,10 +3,10 @@ package com.crianonim.tables.core
 import cats.effect
 import cats.effect.*
 import cats.syntax.all.*
+import com.crianonim.tables.Db
+import com.crianonim.tables.DbConfig
 import com.crianonim.tables.domain.tables.TableColumns
-import doobie.hikari.HikariTransactor
 import doobie.implicits.*
-import doobie.util.ExecutionContexts
 import doobie.util.transactor.Transactor
 
 trait Tables[F[_]] {
@@ -32,25 +32,20 @@ object TablesLive {
 
 object TablesPlayground extends effect.IOApp.Simple {
 
-  def makePostgres = for {
-    ec <- ExecutionContexts.fixedThreadPool[IO](32)
-    transactor <- HikariTransactor.newHikariTransactor[IO](
-      "org.postgresql.Driver",
-      "jdbc:postgresql://localhost:5444/",
-      "docker",
-      "docker",
-      ec
-    )
-  } yield transactor
-
-  def program(postgres: Transactor[IO]) =
+  // Uses the same .env.local / environment resolution as the server, so it is a faithful
+  // check that the configured database is reachable and queryable.
+  def program(tx: Transactor[IO]) =
     for {
-      jobs <- TablesLive.make[IO](postgres)
+      jobs <- TablesLive.make[IO](tx)
       list <- jobs.all
       _ <- IO.println(list)
     } yield ()
 
   override def run: IO[Unit] =
-    makePostgres.use(program)
+    for
+      cfg <- DbConfig.load()
+      _   <- IO.println(s"Querying ${cfg.describe}")
+      _   <- Db.transactor(cfg).use(tx => Db.check(tx) *> program(tx))
+    yield ()
 
 }
