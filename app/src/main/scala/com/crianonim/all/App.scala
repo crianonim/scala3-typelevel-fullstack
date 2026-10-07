@@ -17,6 +17,7 @@ import com.crianonim.gentree.GenTreeApp
 import com.crianonim.dialog.DialogApp
 import com.crianonim.dialoggame.DialogGameApp
 import com.crianonim.shadcn.ShadcnShowcase
+import com.crianonim.janscape.JanscapeApp
 enum Msg {
   case NoMsg
   case NavigateTo(nav: Page)
@@ -29,6 +30,7 @@ enum Msg {
   case UpdateDialog(tMsg: DialogApp.Msg)
   case UpdateDialogGame(tMsg: DialogGameApp.Msg)
   case UpdateShadcn(tMsg: ShadcnShowcase.Msg)
+  case UpdateJanscape(jMsg: JanscapeApp.Msg)
 }
 
 case class Model(
@@ -41,7 +43,8 @@ case class Model(
     genTree: GenTreeApp.Model,
     dialog: DialogApp.Model,
     dialogGame: DialogGameApp.Model,
-    shadcn: ShadcnShowcase.Model
+    shadcn: ShadcnShowcase.Model,
+    janscape: JanscapeApp.Model
 )
 
 @JSExportTopLevel("AllApp")
@@ -58,6 +61,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case Page.DialogPage    => "/dialog"
     case Page.DialogGamePage => "/dialoggame"
     case Page.ShadcnPage     => "/shadcn"
+    case Page.JanscapePage    => "/janscape"
   }
 
   private def pageToTabId(page: Page): String = page match {
@@ -71,6 +75,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case Page.DialogPage    => "dialog"
     case Page.DialogGamePage => "dialoggame"
     case Page.ShadcnPage     => "shadcn"
+    case Page.JanscapePage    => "janscape"
   }
 
   private def tabIdToPage(tabId: String): Page = tabId match {
@@ -84,6 +89,7 @@ object App extends TyrianIOApp[Msg, Model] {
     case "dialog"    => Page.DialogPage
     case "dialoggame" => Page.DialogGamePage
     case "shadcn"    => Page.ShadcnPage
+    case "janscape"   => Page.JanscapePage
     case _           => Page.MainPage
   }
 
@@ -100,6 +106,7 @@ object App extends TyrianIOApp[Msg, Model] {
         case "/dialog"    => Msg.NavigateTo(Page.DialogPage)
         case "/dialoggame" => Msg.NavigateTo(Page.DialogGamePage)
         case "/shadcn"    => Msg.NavigateTo(Page.ShadcnPage)
+        case "/janscape"   => Msg.NavigateTo(Page.JanscapePage)
         case _            => Msg.NoMsg
     case loc: Location.External =>
       Msg.NoMsg
@@ -114,6 +121,7 @@ object App extends TyrianIOApp[Msg, Model] {
     val dialogModel    = DialogApp.init
     val dialogGameModel = DialogGameApp.init
     val shadcnModel     = ShadcnShowcase.init
+    val janscapeModel   = JanscapeApp.init
     (
       Model(
         Page.MainPage,
@@ -125,11 +133,13 @@ object App extends TyrianIOApp[Msg, Model] {
         genTreeModel,
         dialogModel,
         dialogGameModel,
-        shadcnModel
+        shadcnModel,
+        janscapeModel
       ),
       Cmd.Batch(
         DialogApp.initCmd.map(Msg.UpdateDialog.apply),
-        DialogGameApp.initCmd.map(Msg.UpdateDialogGame.apply)
+        DialogGameApp.initCmd.map(Msg.UpdateDialogGame.apply),
+        JanscapeApp.initCmd.map(Msg.UpdateJanscape.apply)
       )
     )
 
@@ -147,7 +157,8 @@ object App extends TyrianIOApp[Msg, Model] {
             SectionTabs.TabItem("gentree", "GenTree"),
             SectionTabs.TabItem("dialog", "Dialog"),
             SectionTabs.TabItem("dialoggame", "Dialog Game"),
-            SectionTabs.TabItem("shadcn", "Shadcn")
+            SectionTabs.TabItem("shadcn", "Shadcn"),
+            SectionTabs.TabItem("janscape", "Janscape")
           ),
           activeTabId = pageToTabId(model.page),
           onTabClick = tabId => Msg.NavigateTo(tabIdToPage(tabId))
@@ -167,6 +178,8 @@ object App extends TyrianIOApp[Msg, Model] {
             DialogGameApp.view(model.dialogGame).map(Msg.UpdateDialogGame.apply)
           case Page.ShadcnPage =>
             ShadcnShowcase.view(model.shadcn).map(Msg.UpdateShadcn.apply)
+          case Page.JanscapePage =>
+            JanscapeApp.view(model.janscape).map(Msg.UpdateJanscape.apply)
         }
       )
     )
@@ -202,6 +215,9 @@ object App extends TyrianIOApp[Msg, Model] {
     case Msg.UpdateShadcn(sMsg) =>
       val (shadcnModel, shadcnCmd) = ShadcnShowcase.update(model.shadcn)(sMsg)
       (model.copy(shadcn = shadcnModel), shadcnCmd.map(Msg.UpdateShadcn.apply))
+    case Msg.UpdateJanscape(jMsg) =>
+      val (janscapeModel, janscapeCmd) = JanscapeApp.update(model.janscape)(jMsg)
+      (model.copy(janscape = janscapeModel), janscapeCmd.map(Msg.UpdateJanscape.apply))
   }
 
   override def subscriptions(model: Model): Sub[IO, Msg] =
@@ -210,4 +226,4 @@ object App extends TyrianIOApp[Msg, Model] {
 
 enum Page:
   case MainPage, TablesPage, DiceRollPage, TimelinesPage, PreviewPage, ScreeptPage,
-    GenTreePage, DialogPage, DialogGamePage, ShadcnPage
+    GenTreePage, DialogPage, DialogGamePage, ShadcnPage, JanscapePage
