@@ -51,74 +51,74 @@ case class Model(
 object App extends TyrianIOApp[Msg, Model] {
 
   private def pageToPath(page: Page): String = page match {
-    case Page.MainPage      => "/"
-    case Page.TablesPage    => "/tables"
-    case Page.DiceRollPage  => "/roll"
-    case Page.TimelinesPage => "/timelines"
-    case Page.PreviewPage   => "/preview"
-    case Page.ScreeptPage   => "/screept"
-    case Page.GenTreePage   => "/gentree"
-    case Page.DialogPage    => "/dialog"
+    case Page.MainPage       => "/"
+    case Page.TablesPage     => "/tables"
+    case Page.DiceRollPage   => "/roll"
+    case Page.TimelinesPage  => "/timelines"
+    case Page.PreviewPage    => "/preview"
+    case Page.ScreeptPage    => "/screept"
+    case Page.GenTreePage    => "/gentree"
+    case Page.DialogPage     => "/dialog"
     case Page.DialogGamePage => "/dialoggame"
     case Page.ShadcnPage     => "/shadcn"
-    case Page.JanscapePage    => "/janscape"
+    case Page.JanscapePage   => "/janscape"
   }
 
   private def pageToTabId(page: Page): String = page match {
-    case Page.MainPage      => "main"
-    case Page.TablesPage    => "tables"
-    case Page.DiceRollPage  => "roll"
-    case Page.TimelinesPage => "timelines"
-    case Page.PreviewPage   => "preview"
-    case Page.ScreeptPage   => "screept"
-    case Page.GenTreePage   => "gentree"
-    case Page.DialogPage    => "dialog"
+    case Page.MainPage       => "main"
+    case Page.TablesPage     => "tables"
+    case Page.DiceRollPage   => "roll"
+    case Page.TimelinesPage  => "timelines"
+    case Page.PreviewPage    => "preview"
+    case Page.ScreeptPage    => "screept"
+    case Page.GenTreePage    => "gentree"
+    case Page.DialogPage     => "dialog"
     case Page.DialogGamePage => "dialoggame"
     case Page.ShadcnPage     => "shadcn"
-    case Page.JanscapePage    => "janscape"
+    case Page.JanscapePage   => "janscape"
   }
 
   private def tabIdToPage(tabId: String): Page = tabId match {
-    case "main"      => Page.MainPage
-    case "tables"    => Page.TablesPage
-    case "roll"      => Page.DiceRollPage
-    case "timelines" => Page.TimelinesPage
-    case "preview"   => Page.PreviewPage
-    case "screept"   => Page.ScreeptPage
-    case "gentree"   => Page.GenTreePage
-    case "dialog"    => Page.DialogPage
+    case "main"       => Page.MainPage
+    case "tables"     => Page.TablesPage
+    case "roll"       => Page.DiceRollPage
+    case "timelines"  => Page.TimelinesPage
+    case "preview"    => Page.PreviewPage
+    case "screept"    => Page.ScreeptPage
+    case "gentree"    => Page.GenTreePage
+    case "dialog"     => Page.DialogPage
     case "dialoggame" => Page.DialogGamePage
-    case "shadcn"    => Page.ShadcnPage
+    case "shadcn"     => Page.ShadcnPage
     case "janscape"   => Page.JanscapePage
-    case _           => Page.MainPage
+    case _            => Page.MainPage
   }
 
   override def router: Location => Msg =
     case loc: Location.Internal =>
       loc.pathName match
-        case "/"          => Msg.NavigateTo(Page.MainPage)
-        case "/tables"    => Msg.NavigateTo(Page.TablesPage)
-        case "/roll"      => Msg.NavigateTo(Page.DiceRollPage)
-        case "/timelines" => Msg.NavigateTo(Page.TimelinesPage)
-        case "/preview"   => Msg.NavigateTo(Page.PreviewPage)
-        case "/screept"   => Msg.NavigateTo(Page.ScreeptPage)
-        case "/gentree"   => Msg.NavigateTo(Page.GenTreePage)
-        case "/dialog"    => Msg.NavigateTo(Page.DialogPage)
+        case "/"           => Msg.NavigateTo(Page.MainPage)
+        case "/tables"     => Msg.NavigateTo(Page.TablesPage)
+        case "/roll"       => Msg.NavigateTo(Page.DiceRollPage)
+        case "/timelines"  => Msg.NavigateTo(Page.TimelinesPage)
+        case "/preview"    => Msg.NavigateTo(Page.PreviewPage)
+        case "/screept"    => Msg.NavigateTo(Page.ScreeptPage)
+        case "/gentree"    => Msg.NavigateTo(Page.GenTreePage)
+        case "/dialog"     => Msg.NavigateTo(Page.DialogPage)
         case "/dialoggame" => Msg.NavigateTo(Page.DialogGamePage)
-        case "/shadcn"    => Msg.NavigateTo(Page.ShadcnPage)
+        case "/shadcn"     => Msg.NavigateTo(Page.ShadcnPage)
         case "/janscape"   => Msg.NavigateTo(Page.JanscapePage)
-        case _            => Msg.NoMsg
+        case _             => Msg.NoMsg
     case loc: Location.External =>
       Msg.NoMsg
 
   override def init(flags: Map[String, String]): (Model, Cmd[IO, Msg]) =
-    val tablesModel    = TablesApp.initEmpty
-    val diceRollModel  = DiceRoll.init
-    val timelinesModel = TimelinesApp.init
-    val previewModel   = Preview.init
-    val screeptModel   = ScreeptApp.init
-    val genTreeModel   = GenTreeApp.init
-    val dialogModel    = DialogApp.init
+    val tablesModel     = TablesApp.initEmpty
+    val diceRollModel   = DiceRoll.init
+    val timelinesModel  = TimelinesApp.init
+    val previewModel    = Preview.init
+    val screeptModel    = ScreeptApp.init
+    val genTreeModel    = GenTreeApp.init
+    val dialogModel     = DialogApp.init
     val dialogGameModel = DialogGameApp.init
     val shadcnModel     = ShadcnShowcase.init
     val janscapeModel   = JanscapeApp.init
@@ -169,11 +169,12 @@ object App extends TyrianIOApp[Msg, Model] {
           case Page.MainPage      => div()("APP")
           case Page.TablesPage    => TablesApp.view(model.tables).map(Msg.UpdateTablesApp.apply)
           case Page.DiceRollPage  => DiceRoll.view(model.diceRoll).map(Msg.UpdateDiceRollApp.apply)
-          case Page.TimelinesPage => TimelinesApp.view(model.timelines).map(Msg.UpdateTimelines.apply)
-          case Page.PreviewPage   => Preview.view(model.preview).map(Msg.UpdatePreview.apply)
-          case Page.ScreeptPage   => ScreeptApp.view(model.screept).map(Msg.UpdateScreept.apply)
-          case Page.GenTreePage   => GenTreeApp.view(model.genTree).map(Msg.UpdateGenTree.apply)
-          case Page.DialogPage    => DialogApp.view(model.dialog).map(Msg.UpdateDialog.apply)
+          case Page.TimelinesPage =>
+            TimelinesApp.view(model.timelines).map(Msg.UpdateTimelines.apply)
+          case Page.PreviewPage    => Preview.view(model.preview).map(Msg.UpdatePreview.apply)
+          case Page.ScreeptPage    => ScreeptApp.view(model.screept).map(Msg.UpdateScreept.apply)
+          case Page.GenTreePage    => GenTreeApp.view(model.genTree).map(Msg.UpdateGenTree.apply)
+          case Page.DialogPage     => DialogApp.view(model.dialog).map(Msg.UpdateDialog.apply)
           case Page.DialogGamePage =>
             DialogGameApp.view(model.dialogGame).map(Msg.UpdateDialogGame.apply)
           case Page.ShadcnPage =>
@@ -185,7 +186,7 @@ object App extends TyrianIOApp[Msg, Model] {
     )
 
   override def update(model: Model): Msg => (Model, Cmd[IO, Msg]) = {
-    case Msg.NoMsg => (model, Cmd.None)
+    case Msg.NoMsg                 => (model, Cmd.None)
     case Msg.UpdateTablesApp(tMsg) =>
       val (tablesModel, tablesCmd) = TablesApp.update(model.tables)(tMsg)
       (model.copy(tables = tablesModel), tablesCmd.map(Msg.UpdateTablesApp.apply))
