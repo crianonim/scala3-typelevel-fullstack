@@ -18,6 +18,7 @@ import com.crianonim.dialog.DialogApp
 import com.crianonim.dialoggame.DialogGameApp
 import com.crianonim.shadcn.ShadcnShowcase
 import com.crianonim.janscape.JanscapeApp
+import com.crianonim.timelinesquiz.TimelinesQuizApp
 enum Msg {
   case NoMsg
   case NavigateTo(nav: Page)
@@ -31,6 +32,7 @@ enum Msg {
   case UpdateDialogGame(tMsg: DialogGameApp.Msg)
   case UpdateShadcn(tMsg: ShadcnShowcase.Msg)
   case UpdateJanscape(jMsg: JanscapeApp.Msg)
+  case UpdateTimelineQuiz(qMsg: TimelinesQuizApp.Msg)
 }
 
 case class Model(
@@ -44,84 +46,90 @@ case class Model(
     dialog: DialogApp.Model,
     dialogGame: DialogGameApp.Model,
     shadcn: ShadcnShowcase.Model,
-    janscape: JanscapeApp.Model
+    janscape: JanscapeApp.Model,
+    timelineQuiz: TimelinesQuizApp.Model
 )
 
 @JSExportTopLevel("AllApp")
 object App extends TyrianIOApp[Msg, Model] {
 
   private def pageToPath(page: Page): String = page match {
-    case Page.MainPage       => "/"
-    case Page.TablesPage     => "/tables"
-    case Page.DiceRollPage   => "/roll"
-    case Page.TimelinesPage  => "/timelines"
-    case Page.PreviewPage    => "/preview"
-    case Page.ScreeptPage    => "/screept"
-    case Page.GenTreePage    => "/gentree"
-    case Page.DialogPage     => "/dialog"
-    case Page.DialogGamePage => "/dialoggame"
-    case Page.ShadcnPage     => "/shadcn"
-    case Page.JanscapePage   => "/janscape"
+    case Page.MainPage         => "/"
+    case Page.TablesPage       => "/tables"
+    case Page.DiceRollPage     => "/roll"
+    case Page.TimelinesPage    => "/timelines"
+    case Page.PreviewPage      => "/preview"
+    case Page.ScreeptPage      => "/screept"
+    case Page.GenTreePage      => "/gentree"
+    case Page.DialogPage       => "/dialog"
+    case Page.DialogGamePage   => "/dialoggame"
+    case Page.ShadcnPage       => "/shadcn"
+    case Page.JanscapePage     => "/janscape"
+    case Page.TimelineQuizPage => "/timeline-quiz"
   }
 
   private def pageToTabId(page: Page): String = page match {
-    case Page.MainPage       => "main"
-    case Page.TablesPage     => "tables"
-    case Page.DiceRollPage   => "roll"
-    case Page.TimelinesPage  => "timelines"
-    case Page.PreviewPage    => "preview"
-    case Page.ScreeptPage    => "screept"
-    case Page.GenTreePage    => "gentree"
-    case Page.DialogPage     => "dialog"
-    case Page.DialogGamePage => "dialoggame"
-    case Page.ShadcnPage     => "shadcn"
-    case Page.JanscapePage   => "janscape"
+    case Page.MainPage         => "main"
+    case Page.TablesPage       => "tables"
+    case Page.DiceRollPage     => "roll"
+    case Page.TimelinesPage    => "timelines"
+    case Page.PreviewPage      => "preview"
+    case Page.ScreeptPage      => "screept"
+    case Page.GenTreePage      => "gentree"
+    case Page.DialogPage       => "dialog"
+    case Page.DialogGamePage   => "dialoggame"
+    case Page.ShadcnPage       => "shadcn"
+    case Page.JanscapePage     => "janscape"
+    case Page.TimelineQuizPage => "timeline-quiz"
   }
 
   private def tabIdToPage(tabId: String): Page = tabId match {
-    case "main"       => Page.MainPage
-    case "tables"     => Page.TablesPage
-    case "roll"       => Page.DiceRollPage
-    case "timelines"  => Page.TimelinesPage
-    case "preview"    => Page.PreviewPage
-    case "screept"    => Page.ScreeptPage
-    case "gentree"    => Page.GenTreePage
-    case "dialog"     => Page.DialogPage
-    case "dialoggame" => Page.DialogGamePage
-    case "shadcn"     => Page.ShadcnPage
-    case "janscape"   => Page.JanscapePage
-    case _            => Page.MainPage
+    case "main"          => Page.MainPage
+    case "tables"        => Page.TablesPage
+    case "roll"          => Page.DiceRollPage
+    case "timelines"     => Page.TimelinesPage
+    case "preview"       => Page.PreviewPage
+    case "screept"       => Page.ScreeptPage
+    case "gentree"       => Page.GenTreePage
+    case "dialog"        => Page.DialogPage
+    case "dialoggame"    => Page.DialogGamePage
+    case "shadcn"        => Page.ShadcnPage
+    case "janscape"      => Page.JanscapePage
+    case "timeline-quiz" => Page.TimelineQuizPage
+    case _               => Page.MainPage
   }
 
   override def router: Location => Msg =
     case loc: Location.Internal =>
       loc.pathName match
-        case "/"           => Msg.NavigateTo(Page.MainPage)
-        case "/tables"     => Msg.NavigateTo(Page.TablesPage)
-        case "/roll"       => Msg.NavigateTo(Page.DiceRollPage)
-        case "/timelines"  => Msg.NavigateTo(Page.TimelinesPage)
-        case "/preview"    => Msg.NavigateTo(Page.PreviewPage)
-        case "/screept"    => Msg.NavigateTo(Page.ScreeptPage)
-        case "/gentree"    => Msg.NavigateTo(Page.GenTreePage)
-        case "/dialog"     => Msg.NavigateTo(Page.DialogPage)
-        case "/dialoggame" => Msg.NavigateTo(Page.DialogGamePage)
-        case "/shadcn"     => Msg.NavigateTo(Page.ShadcnPage)
-        case "/janscape"   => Msg.NavigateTo(Page.JanscapePage)
-        case _             => Msg.NoMsg
+        case "/"              => Msg.NavigateTo(Page.MainPage)
+        case "/tables"        => Msg.NavigateTo(Page.TablesPage)
+        case "/roll"          => Msg.NavigateTo(Page.DiceRollPage)
+        case "/timelines"     => Msg.NavigateTo(Page.TimelinesPage)
+        case "/preview"       => Msg.NavigateTo(Page.PreviewPage)
+        case "/screept"       => Msg.NavigateTo(Page.ScreeptPage)
+        case "/gentree"       => Msg.NavigateTo(Page.GenTreePage)
+        case "/dialog"        => Msg.NavigateTo(Page.DialogPage)
+        case "/dialoggame"    => Msg.NavigateTo(Page.DialogGamePage)
+        case "/shadcn"        => Msg.NavigateTo(Page.ShadcnPage)
+        case "/janscape"      => Msg.NavigateTo(Page.JanscapePage)
+        case "/timeline-quiz" => Msg.NavigateTo(Page.TimelineQuizPage)
+        case _                => Msg.NoMsg
     case loc: Location.External =>
       Msg.NoMsg
 
   override def init(flags: Map[String, String]): (Model, Cmd[IO, Msg]) =
-    val tablesModel     = TablesApp.initEmpty
-    val diceRollModel   = DiceRoll.init
-    val timelinesModel  = TimelinesApp.init
-    val previewModel    = Preview.init
-    val screeptModel    = ScreeptApp.init
-    val genTreeModel    = GenTreeApp.init
-    val dialogModel     = DialogApp.init
-    val dialogGameModel = DialogGameApp.init
-    val shadcnModel     = ShadcnShowcase.init
-    val janscapeModel   = JanscapeApp.init
+    val tablesModel       = TablesApp.initEmpty
+    val diceRollModel     = DiceRoll.init
+    val timelinesModel    = TimelinesApp.init
+    val previewModel      = Preview.init
+    val screeptModel      = ScreeptApp.init
+    val genTreeModel      = GenTreeApp.init
+    val dialogModel       = DialogApp.init
+    val dialogGameModel   = DialogGameApp.init
+    val shadcnModel       = ShadcnShowcase.init
+    val janscapeModel     = JanscapeApp.init
+    val timelineQuizModel = TimelinesQuizApp.init
     (
       Model(
         Page.MainPage,
@@ -134,7 +142,8 @@ object App extends TyrianIOApp[Msg, Model] {
         dialogModel,
         dialogGameModel,
         shadcnModel,
-        janscapeModel
+        janscapeModel,
+        timelineQuizModel
       ),
       Cmd.Batch(
         DialogApp.initCmd.map(Msg.UpdateDialog.apply),
@@ -158,7 +167,8 @@ object App extends TyrianIOApp[Msg, Model] {
             SectionTabs.TabItem("dialog", "Dialog"),
             SectionTabs.TabItem("dialoggame", "Dialog Game"),
             SectionTabs.TabItem("shadcn", "Shadcn"),
-            SectionTabs.TabItem("janscape", "Janscape")
+            SectionTabs.TabItem("janscape", "Janscape"),
+            SectionTabs.TabItem("timeline-quiz", "Timeline Quiz")
           ),
           activeTabId = pageToTabId(model.page),
           onTabClick = tabId => Msg.NavigateTo(tabIdToPage(tabId))
@@ -181,6 +191,8 @@ object App extends TyrianIOApp[Msg, Model] {
             ShadcnShowcase.view(model.shadcn).map(Msg.UpdateShadcn.apply)
           case Page.JanscapePage =>
             JanscapeApp.view(model.janscape).map(Msg.UpdateJanscape.apply)
+          case Page.TimelineQuizPage =>
+            TimelinesQuizApp.view(model.timelineQuiz).map(Msg.UpdateTimelineQuiz.apply)
         }
       )
     )
@@ -219,6 +231,12 @@ object App extends TyrianIOApp[Msg, Model] {
     case Msg.UpdateJanscape(jMsg) =>
       val (janscapeModel, janscapeCmd) = JanscapeApp.update(model.janscape)(jMsg)
       (model.copy(janscape = janscapeModel), janscapeCmd.map(Msg.UpdateJanscape.apply))
+    case Msg.UpdateTimelineQuiz(qMsg) =>
+      val (timelineQuizModel, timelineQuizCmd) = TimelinesQuizApp.update(model.timelineQuiz)(qMsg)
+      (
+        model.copy(timelineQuiz = timelineQuizModel),
+        timelineQuizCmd.map(Msg.UpdateTimelineQuiz.apply)
+      )
   }
 
   override def subscriptions(model: Model): Sub[IO, Msg] =
@@ -227,4 +245,4 @@ object App extends TyrianIOApp[Msg, Model] {
 
 enum Page:
   case MainPage, TablesPage, DiceRollPage, TimelinesPage, PreviewPage, ScreeptPage,
-    GenTreePage, DialogPage, DialogGamePage, ShadcnPage, JanscapePage
+    GenTreePage, DialogPage, DialogGamePage, ShadcnPage, JanscapePage, TimelineQuizPage

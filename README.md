@@ -50,6 +50,7 @@ module so the exact same code runs on the JVM and in the browser.
 │       ├── gentree/Person.scala              # Person — genealogy node
 │       ├── screept/                          # The "Screept" mini-language: Parser, Ast, Evaluator
 │       ├── dialog/                           # Dialog game model + DialogEngine
+│       ├── timelinesquiz/                    # Timeline quiz domain + embedded UK monarch CSV
 │       └── forbiddenlands/Character.scala    # Forbidden Lands character generator domain
 │
 ├── server/                    # JVM backend (http4s Ember + Doobie)
@@ -80,6 +81,7 @@ module so the exact same code runs on the JVM and in the browser.
 │       ├── shadcn/                          # Tab: shadcn/ui component showcase
 │       │   ├── ShadcnShowcase.scala
 │       │   ├── Display.scala  Forms.scala  Content.scala  Navigation.scala  Overlays.scala  Icons.scala
+│       ├── timelinesquiz/TimelinesQuizApp.scala  # Tab: year-guessing timeline quiz
 │       └── ui/                              # Reusable Tyrian components
 │           ├── Button.scala  Card.scala  Input.scala  Modal.scala  Tooltip.scala
 │           ├── DateInput.scala  FileInput.scala  SectionTabs.scala
@@ -216,6 +218,7 @@ Adding a tab means: create the object, add a `Page` case, a `Model` field, a pat
 | `/dialog`     | `Dialog`      | `dialog/DialogApp.scala`                | Player **and** editor for dialogs built on the `common/dialog` model. Options carry conditions and action trees (`GoBack`, `GoDialog`, `Msg`, `Screept`, `Conditional`, `Block`). Supports `GameDefinition` JSON import/export. |
 | `/dialoggame` | `Dialog Game` | `dialoggame/DialogGameApp.scala`        | A larger, two-column re-implementation of the above: inline Screept editing, reordering actions, action-type switching, an environment inspector, a status line, and **localStorage** persistence (auto-save plus named saved games). |
 | `/shadcn`     | `Shadcn`      | `shadcn/ShadcnShowcase.scala` (+ 5 files) | A Scala/Tyrian port of the **shadcn/ui** component gallery. Uses the `oklch` CSS variables in `app/index.css` mapped into Tailwind via `tailwind.config.js`. Includes a light/dark toggle that flips a `.dark` class on the gallery root. |
+| `/timeline-quiz` | `Timeline Quiz` | `timelinesquiz/TimelinesQuizApp.scala` | A port of the standalone Next.js timeline-quiz app. Pick a timeline, then guess which entries cover a random year: single tap, or **Overlap** mode for multi-select + Submit. Instant feedback banner with ~1.2 s auto-advance, a score footer, a faint debug toggle that forces a specific year, and an entries preview page. Pure logic and the embedded `uk_monarchs` CSV live in `common/shared/.../timelinesquiz`. |
 
 ### How the tabs are related
 

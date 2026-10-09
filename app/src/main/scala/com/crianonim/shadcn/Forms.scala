@@ -4,7 +4,8 @@ import tyrian.*
 import tyrian.Html.*
 
 /** shadcn/ui form + control components. Interactive ones take current state + a message value or
-  * constructor; state lives in the caller's model (same convention as `com.crianonim.ui.SectionTabs`).
+  * constructor; state lives in the caller's model (same convention as
+  * `com.crianonim.ui.SectionTabs`).
   */
 
 // ============ BUTTON ============
@@ -21,9 +22,10 @@ object Button:
     case Variant.Default     => "bg-primary text-primary-foreground shadow hover:opacity-90"
     case Variant.Secondary   => "bg-secondary text-secondary-foreground hover:opacity-80"
     case Variant.Destructive => "bg-destructive text-white shadow-sm hover:opacity-90"
-    case Variant.Outline     => "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
-    case Variant.Ghost       => "hover:bg-accent hover:text-accent-foreground"
-    case Variant.Link        => "text-primary underline-offset-4 hover:underline"
+    case Variant.Outline     =>
+      "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
+    case Variant.Ghost => "hover:bg-accent hover:text-accent-foreground"
+    case Variant.Link  => "text-primary underline-offset-4 hover:underline"
 
   private def sizeCls(s: Size): String = s match
     case Size.Sm      => "h-8 rounded-md px-3 text-xs"
@@ -35,16 +37,22 @@ object Button:
       label: String,
       msg: A,
       variant: Variant = Variant.Default,
-      size: Size = Size.Default
+      size: Size = Size.Default,
+      className: String = ""
   ): Html[A] =
-    button(cls := s"$base ${variantCls(variant)} ${sizeCls(size)}", onClick(msg))(text(label))
+    button(cls := s"$base ${variantCls(variant)} ${sizeCls(size)} $className", onClick(msg))(
+      text(label)
+    )
 
   def withContent[A](
       msg: A,
       variant: Variant = Variant.Default,
-      size: Size = Size.Default
-  )(children: Html[A]*): Html[A] =
-    button(cls := s"$base ${variantCls(variant)} ${sizeCls(size)}", onClick(msg))(children*)
+      size: Size = Size.Default,
+      className: String = ""
+  )(children: Elem[A]*): Html[A] =
+    button(cls := s"$base ${variantCls(variant)} ${sizeCls(size)} $className", onClick(msg))(
+      children*
+    )
 
 // ============ BUTTON GROUP ============
 object ButtonGroup:
@@ -67,10 +75,11 @@ object Input:
       value_ : String,
       onInputMsg: String => A,
       placeholder_ : String = "",
-      type_ : String = "text"
+      type_ : String = "text",
+      className: String = ""
   ): Html[A] =
     input(
-      cls := base,
+      cls := s"$base $className",
       attribute("type", type_),
       attribute("placeholder", placeholder_),
       value := value_,
@@ -139,7 +148,9 @@ object RadioGroup:
       options.map { case (v, lbl) =>
         val isSel = v == selected
         label(cls := "flex items-center gap-2 text-sm cursor-pointer", onClick(onSelect(v)))(
-          div(cls := "aspect-square size-4 rounded-full border border-primary flex items-center justify-center")(
+          div(
+            cls := "aspect-square size-4 rounded-full border border-primary flex items-center justify-center"
+          )(
             if isSel then div(cls := "size-2 rounded-full bg-primary")() else span()()
           ),
           span()(text(lbl))
@@ -157,7 +168,9 @@ object Switch:
       onClick(onToggle),
       attribute("role", "switch")
     )(
-      span(cls := s"pointer-events-none block size-4 rounded-full bg-background shadow-lg transition-transform $thumbPos")()
+      span(
+        cls := s"pointer-events-none block size-4 rounded-full bg-background shadow-lg transition-transform $thumbPos"
+      )()
     )
 
 // ============ SLIDER ============
@@ -209,8 +222,16 @@ object InputGroup:
       suffix: Option[Html[A]] = None,
       placeholder_ : String = ""
   ): Html[A] =
-    div(cls := "flex items-center rounded-md border border-input bg-transparent shadow-sm focus-within:ring-1 focus-within:ring-ring overflow-hidden")(
-      prefix.map(p => span(cls := "px-3 text-sm text-muted-foreground border-r border-input bg-muted h-9 flex items-center")(text(p))).getOrElse(span()()),
+    div(
+      cls := "flex items-center rounded-md border border-input bg-transparent shadow-sm focus-within:ring-1 focus-within:ring-ring overflow-hidden"
+    )(
+      prefix
+        .map(p =>
+          span(
+            cls := "px-3 text-sm text-muted-foreground border-r border-input bg-muted h-9 flex items-center"
+          )(text(p))
+        )
+        .getOrElse(span()()),
       input(
         cls := "flex-1 h-9 bg-transparent px-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none",
         attribute("type", "text"),
@@ -227,5 +248,6 @@ object Field:
     div(cls := "flex flex-col gap-2")(
       Label[A](labelText),
       control,
-      if description.isEmpty then span()() else div(cls := "text-sm text-muted-foreground")(text(description))
+      if description.isEmpty then span()()
+      else div(cls := "text-sm text-muted-foreground")(text(description))
     )
