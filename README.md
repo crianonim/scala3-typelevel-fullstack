@@ -4,7 +4,7 @@ A full-stack **Scala 3** playground built on the Typelevel ecosystem: a **Cats E
 a **Tyrian** (Elm-architecture) frontend compiled to JavaScript with Scala.js, and a **shared
 cross-compiled domain model** that both sides depend on.
 
-It is a mono-repo of several small, self-contained "apps" (tabs) rather than a single product. Each
+It is a mono-repo of several small, self-contained "apps" rather than a single product. Each
 app lives in its own package, is routed independently, and usually has its logic in the `common`
 module so the exact same code runs on the JVM and in the browser.
 
@@ -70,22 +70,26 @@ module so the exact same code runs on the JVM and in the browser.
 │   ├── static/img/                          # Image assets
 │   ├── dist/                                # Build output — THIS is what the server serves
 │   └── src/main/scala/com/crianonim/
-│       ├── all/App.scala                    # Root Tyrian app: router, tab bar, parent Model
-│       ├── tables/TablesApp.scala            # Tab: talks to the backend
-│       ├── dnd/DiceRoll.scala               # Tab: dice roller
-│       ├── timelines/TimelinesApp.scala     # Tab: timeline visualisation
-│       ├── gentree/GenTreeApp.scala         # Tab: family tree
-│       ├── screept/ScreeptApp.scala         # Tab: Screept code editor + runner
-│       ├── dialog/DialogApp.scala           # Tab: dialog player + editor
-│       ├── dialoggame/DialogGameApp.scala   # Tab: full dialog-game editor/player
-│       ├── shadcn/                          # Tab: shadcn/ui component showcase
+│       ├── all/                              # Root Tyrian app + shared shell
+│       │   ├── App.scala                     # router, parent Model, init/update/view
+│       │   ├── AppRegistry.scala             # Page enum + AppEntry list (single source of truth)
+│       │   └── AppShell.scala                # landing page + full-screen app frame (top bar)
+│       ├── tables/TablesApp.scala            # App: talks to the backend
+│       ├── dnd/DiceRoll.scala               # App: dice roller
+│       ├── timelines/TimelinesApp.scala     # App: timeline visualisation
+│       ├── gentree/GenTreeApp.scala         # App: family tree
+│       ├── screept/ScreeptApp.scala         # App: Screept code editor + runner
+│       ├── dialog/DialogApp.scala           # App: dialog player + editor
+│       ├── dialoggame/DialogGameApp.scala   # App: full dialog-game editor/player
+│       ├── janscape/JanscapeApp.scala       # App: janscape settlement game
+│       ├── shadcn/                          # App: shadcn/ui component showcase
 │       │   ├── ShadcnShowcase.scala
 │       │   ├── Display.scala  Forms.scala  Content.scala  Navigation.scala  Overlays.scala  Icons.scala
-│       ├── timelinesquiz/TimelinesQuizApp.scala  # Tab: year-guessing timeline quiz
+│       ├── timelinesquiz/TimelinesQuizApp.scala  # App: year-guessing timeline quiz
 │       └── ui/                              # Reusable Tyrian components
 │           ├── Button.scala  Card.scala  Input.scala  Modal.scala  Tooltip.scala
 │           ├── DateInput.scala  FileInput.scala  SectionTabs.scala
-│           └── Preview.scala                # "Preview" tab = gallery of the ui/ components
+│           └── Preview.scala                # "Preview" app = gallery of the ui/ components
 │
 ├── db/                        # Database: Docker Compose, init SQL, sample data
 │   ├── docker-compose.yml                   # PostgreSQL on host port 5444 (optional local option)
@@ -97,7 +101,7 @@ module so the exact same code runs on the JVM and in the browser.
 ├── .env.local                 # Your DB credentials. Git-ignored. Read at server startup.
 │
 ├── project/                   # sbt build definition and plugins
-│   ├── build.properties                     # sbt.version = 1.10.0
+│   ├── build.properties                     # sbt.version = 1.13.0
 │   ├── plugins.sbt                          # sbt-scalajs, sbt-scalajs-crossproject, sbt-assembly, ...
 │   └── metals.sbt                           # sbt-bloop (auto-generated, enables Metals)
 │
@@ -180,10 +184,10 @@ Then open **<http://localhost:8080>**.
 ### Which URL to use?
 
 - **<http://localhost:8080>** — the backend, serving the already-built files from `app/dist`.
-  This is the one to use for anything that talks to the server (i.e. the **X Tables** tab), because
+  This is the one to use for anything that talks to the server (i.e. the **Tables** app), because
   only this origin can resolve `GET /tables`.
 - **<http://localhost:1234>** — Parcel's dev server, with hot module replacement. Faster feedback
-  on UI changes, but the backend is *not* proxied, so the **X Tables** tab will not load data there.
+  on UI changes, but the backend is *not* proxied, so the **Tables** app will not load data there.
 
 Parcel is started with `--dist-dir dist`, so the dev bundle is written to the same directory the
 backend serves. That is why `:8080` reflects your latest changes too.
@@ -198,30 +202,39 @@ otherwise Parcel will fail to resolve that import.
 
 ## 4. The applications
 
-All apps are tabs inside a single Tyrian root app. `app/src/main/scala/com/crianonim/all/App.scala`
-owns the `Model`, the `enum Page`, the `router`, and the tab bar (`SectionTabs`); each child app
+Every app lives inside a single Tyrian root app. `app/src/main/scala/com/crianonim/all/App.scala`
+owns the `Model`, the `enum Page`, the `router`, `init`, `update` and `subscriptions`; each child app
 exposes the same four pure functions — `init`, `update`, `view`, `subscriptions` — and its messages
 are lifted into the root `Msg` enum via an `UpdateXxx` wrapper.
 
-Adding a tab means: create the object, add a `Page` case, a `Model` field, a path in `router` and
-`pageToPath`, a `TabItem`, and an `Update` branch. All ten routes are declared in
-`all/App.scala:50-105` and `:211-213`.
+`/` is a **landing page** (`all/AppShell.landing`) listing every app as a stacked full-width button.
+Selecting one opens it **full-screen**, under a thin top bar (`all/AppShell.appFrame`) with
+**Back to Main** on the left and the app name plus a `Version 0.1` placeholder centered. The version
+is the single constant `AppShell.Version`. `SectionTabs` is no longer the top-level navigation (it
+survives as a component and is still demoed in the Preview gallery).
 
-| Route         | Tab label     | Source                                  | What it does |
+Adding an app means: create the object, add a `Page` case and a `Model` field, an `UpdateXxx` message
+and its `update` branch in `all/App.scala`, and **one `AppEntry` to `AppRegistry`**
+(`app/src/main/scala/com/crianonim/all/AppRegistry.scala`). The router, the landing page and the
+app-frame title are all derived from that registry, so there is no separate path/tab-label mapping to
+keep in sync.
+
+| Route         | App name      | Source                                  | What it does |
 |---------------|---------------|-----------------------------------------|--------------|
-| `/`           | `Mains`       | `all/App.scala:158`                     | Placeholder. Just renders the text `APP`. |
-| `/tables`     | `X Tables`    | `tables/TablesApp.scala`                | **The only app that talks to the backend.** Issues `GET /tables` via Tyrian's `Http.send`, parses the response with Circe into `List[TableColumns]`, and renders each column name + data type. Has a "Get Tables Data" button. |
-| `/roll`       | `Roll`        | `dnd/DiceRoll.scala`                    | Dice roller. Inputs for dice count, faces and modifier, plus d4/d6/d8/d10/d20/d100 shortcuts. Rolls via `Roll.forCats[IO]` with a `Random` from `scala.util`, renders the individual die results. |
-| `/timelines`  | `Timelines 2` | `timelines/TimelinesApp.scala`          | Timeline visualiser. Seeded from `TimelinesFromJSON` in `common`; supports a zoomable/pannable viewport, selecting a timeline and fitting the viewport to it, a create-timeline form (point / closed / started periods) and **JSON import/export** of the whole timeline list. |
+| `/`           | `Main`        | `all/AppShell.scala`                    | The landing page. Lists every app below as a full-width button. Not an `AppEntry`; rendered directly by `App.view`. |
+| `/tables`     | `Tables`      | `tables/TablesApp.scala`                | **The only app that talks to the backend.** Issues `GET /tables` via Tyrian's `Http.send`, parses the response with Circe into `List[TableColumns]`, and renders each column name + data type. Has a "Get Tables Data" button. |
+| `/roll`       | `Dice Roll`   | `dnd/DiceRoll.scala`                    | Dice roller. Inputs for dice count, faces and modifier, plus d4/d6/d8/d10/d20/d100 shortcuts. Rolls via `Roll.forCats[IO]` with a `Random` from `scala.util`, renders the individual die results. |
+| `/timelines`  | `Timelines`   | `timelines/TimelinesApp.scala`          | Timeline visualiser. Seeded from `TimelinesFromJSON` in `common`; supports a zoomable/pannable viewport, selecting a timeline and fitting the viewport to it, a create-timeline form (point / closed / started periods) and **JSON import/export** of the whole timeline list. |
 | `/preview`    | `Preview`     | `ui/Preview.scala`                      | A gallery / living style guide for the hand-rolled components in `com.crianonim.ui` (Button variants, Card variants, Inputs, Tooltip, SectionTabs, Modal). Also useful as a component sandbox. |
 | `/screept`    | `Screept`     | `screept/ScreeptApp.scala`              | A code editor and runner for **Screept**, the tiny scripting language implemented in `common/shared/.../screept`. Left pane = source + "Run"; right pane = `PRINT` output and a table of the resulting variable/procedure bindings. Has a syntax-help modal. |
 | `/gentree`    | `GenTree`     | `gentree/GenTreeApp.scala`              | Family tree. Add/edit `Person` nodes (name, description, born/died `TimePoint`s, mother/father links), select nodes, export/import the whole tree as JSON. |
 | `/dialog`     | `Dialog`      | `dialog/DialogApp.scala`                | Player **and** editor for dialogs built on the `common/dialog` model. Options carry conditions and action trees (`GoBack`, `GoDialog`, `Msg`, `Screept`, `Conditional`, `Block`). Supports `GameDefinition` JSON import/export. |
 | `/dialoggame` | `Dialog Game` | `dialoggame/DialogGameApp.scala`        | A larger, two-column re-implementation of the above: inline Screept editing, reordering actions, action-type switching, an environment inspector, a status line, and **localStorage** persistence (auto-save plus named saved games). |
 | `/shadcn`     | `Shadcn`      | `shadcn/ShadcnShowcase.scala` (+ 5 files) | A Scala/Tyrian port of the **shadcn/ui** component gallery. Uses the `oklch` CSS variables in `app/index.css` mapped into Tailwind via `tailwind.config.js`. Includes a light/dark toggle that flips a `.dark` class on the gallery root. |
+| `/janscape`   | `Janscape`    | `janscape/JanscapeApp.scala`            | A port of the janscape settlement game: menu/play/mine/craft/build/forest screens driven by the `common/.../janscape` model, with effectful rolls in `update` and localStorage autosave. |
 | `/timeline-quiz` | `Timeline Quiz` | `timelinesquiz/TimelinesQuizApp.scala` | A port of the standalone Next.js timeline-quiz app. Pick a timeline, then guess which entries cover a random year: single tap, or **Overlap** mode for multi-select + Submit. Instant feedback banner with ~1.2 s auto-advance, a score footer, a faint debug toggle that forces a specific year, and an entries preview page. Pure logic and the embedded `uk_monarchs` CSV live in `common/shared/.../timelinesquiz`. |
 
-### How the tabs are related
+### How the apps are related
 
 - `Screept` is the scripting substrate. `Dialog` and `DialogGame` evaluate Screept expressions to
   decide which options are visible and what their text says.
@@ -255,7 +268,7 @@ invariant if you extend them.
 - `Timeline.scala` — `Timeline(id, name, period)`, the `Period` ADT (`Point`, `Closed`,
   `Started`), the `TimePoint` ADT (`YearOnly`, `YearMonth`, `YearMonthDay`), and `Viewport` with
   the `min`/`max`/`floor`/`ceil` helpers the viewport code uses.
-- `TimelinesFromJSON.scala` — the hard-coded seed list used by the Timelines tab.
+- `TimelinesFromJSON.scala` — the hard-coded seed list used by the Timelines app.
 
 ### `screept/` — the scripting language
 - `Ast.scala` — `Statement`, `Expression`, `Value` (`NumberValue`, `TextValue`, `FuncValue`),
@@ -287,7 +300,7 @@ This is the *only* type that is serialised between server and browser. Because b
 ### `forbiddenlands/Character.scala`
 `Attributes`, `Proffesion` and `Kin` enums with `RandomTable`s keyed on d66 ranges — an example of
 using the `roll` package to model a tabletop character generator. It is currently domain-only; there
-is no tab for it.
+is no app for it.
 
 ### `gentree/Person.scala`
 `Person(id, name, description, born: TimePoint, died: Option[TimePoint], motherId, fatherId)` with
@@ -311,8 +324,8 @@ these before writing `Html.button` or similar:
 | `FileInput`    | File picker, used by the JSON import flows. |
 | `Modal`        | `Modal.withTitle(visible, onClose, title, size)(content)`. |
 | `Tooltip`      | Wraps an element and shows a tooltip on hover. |
-| `SectionTabs`  | The top-level tab bar (`TabItem(id, label)`, `activeTabId`, `onTabClick`). |
-| `Preview`      | The gallery tab itself; also a handy reference for how each component is meant to be used. |
+| `SectionTabs`  | A horizontal tab strip (`TabItem(id, label)`, `activeTabId`, `onTabClick`). No longer the top-level navigation; the app shell lives in `all/AppShell.scala`. |
+| `Preview`      | The gallery app itself; also a handy reference for how each component is meant to be used. |
 
 Other house rules worth respecting:
 - `Html.text("...")` returns a bare string, not an `Html[A]`. Always wrap it in an element:
@@ -603,7 +616,7 @@ finishes with a `SELECT` so running the file shows you the result. Every stateme
 
 > **Note on seed data:** `db/timelines.json` and `Timeline.examples` disagree on two entries —
 > `002` (`2023-08-07` vs `2024-07-08`) and `003` (`1999-10` vs `1999-09`). The SQL seeds from
-> `db/timelines.json`, which matches `TimelinesFromJSON`, i.e. the data the Timelines tab actually
+> `db/timelines.json`, which matches `TimelinesFromJSON`, i.e. the data the Timelines app actually
 > renders. The `005` id gap is present upstream and preserved.
 
 > **Note on migrations:** there is no migration tool here — no Flyway, no Liquibase, no
@@ -757,9 +770,9 @@ Two deliberate decisions here:
 `web`'s fallback returns `index.html` for *any* unmatched path, so if the API were second, `/tables`
 would never be reached. If you ever get `text/html` back from `/tables`, this is why.
 
-**A database outage does not take down the other nine tabs.** `.handleErrorWith` degrades to
+**A database outage does not take down the other apps.** `.handleErrorWith` degrades to
 `HttpRoutes.empty` and logs a loud warning instead of aborting startup. The SPA keeps working, and
-only the X Tables tab is affected. You can see both paths in action:
+only the Tables app is affected. You can see both paths in action:
 
 ```
 # healthy
@@ -774,7 +787,7 @@ WARNING: Postgres unavailable, /tables is disabled -> Connection to 127.0.0.1:59
 Crianonim Server ready. Test localhost:8080/tables.
 $ curl -i localhost:8080/tables
 HTTP/1.1 200 OK
-Content-Type: text/html          # the SPA fallback, i.e. the tab shows a parse error
+Content-Type: text/html          # the SPA fallback, i.e. the app shows a parse error
 ```
 
 ### 8.9 Poking at the database by hand
@@ -1067,8 +1080,8 @@ start working on the backend.
 1. **`.env.local` is required to match the committed code.** It is git-ignored, so a fresh clone has
    no credentials. Until you run `cp .env.example .env.local`, the server falls back to the local
    Docker defaults and, with no Docker database running, logs
-   `WARNING: Postgres unavailable, /tables is disabled` while the other nine tabs work fine. Nothing
-   crashes — but `/tables` returns the SPA's `index.html`, so the X Tables tab shows a parse error.
+   `WARNING: Postgres unavailable, /tables is disabled` while the other apps work fine. Nothing
+   crashes — but `/tables` returns the SPA's `index.html`, so the Tables app shows a parse error.
 2. **`.env.local` is a secret.** It holds a live Neon password. It is git-ignored
    (`.gitignore:180-183`), and `!.env.example` keeps the template committable — do not remove that
    negation. If you ever commit the real file, rotate the password; git history will not forget.
@@ -1087,7 +1100,7 @@ start working on the backend.
    also no `.dockerignore`.
 8. **No `server` tests yet**, though ScalaTest, `doobie-scalatest`, `cats-effect-testing` and
    Testcontainers are already declared in `build.sbt`.
-9. **Parcel on :1234 has no backend proxy**, so the X Tables tab can only work through :8080.
+9. **Parcel on :1234 has no backend proxy**, so the Tables app can only work through :8080.
 10. **`pureconfig` is on the classpath but unused.** It was presumably the original intent for
     configuration; `DbConfig` reads the environment directly instead. Harmless, but it is a
     dependency you could delete.
@@ -1097,14 +1110,14 @@ start working on the backend.
     `DbConfig.load()`.
 12. **Assets that are not wired up:** `app/static/img/*` and `app/css/style.css` are not referenced by
     `index.html` or any Scala source, and `add_monarchs.json` is sample data. `db/timelines.json` is
-    also the source `db/sql/timelines.sql` seeds from, though the Timelines tab only ever reads the
+    also the source `db/sql/timelines.sql` seeds from, though the Timelines app only ever reads the
     *format*, since it exports to that filename. `moment` is in `package.json` but is not imported
     from Scala.
 13. **`timelines.timeline` is not read by any code yet.** The schema, constraints and seed data are
-    real, and `/tables` lists the columns, but no Doobie query reads the rows — the Timelines tab
+    real, and `/tables` lists the columns, but no Doobie query reads the rows — the Timelines app
     still loads its data from `TimelinesFromJSON` in the frontend. The table is the persistence layer
     waiting for its repository.
-13. **`CLAUDE.md` is partly stale** — it lists older dependency versions (http4s 0.23.15, doobie
+14. **`CLAUDE.md` is partly stale** — it lists older dependency versions (http4s 0.23.15, doobie
     RC1, circe 0.14.0, cats-effect 3.6.3, fastparse 3.1.1, munit 1.2.4) and says the DB is on a
     `postgres:latest` container started with plain `docker run`. The authoritative versions are in
     `build.sbt`; DB config is in `.env.local` / `DbConfig`.
