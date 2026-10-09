@@ -6,7 +6,7 @@ import scala.util.Random
 import tyrian.*
 import tyrian.Html.*
 
-import com.crianonim.shadcn.{Badge, Button, Card, Icons, Input, Table}
+import com.crianonim.shadcn.{Badge, Button, Card, Icons, Input}
 
 /** The "Timeline Quiz" tab: a Tyrian reimplementation of the Next.js app. Pick a timeline, guess
   * which entries cover a given year, and get instant feedback. Overlap mode lets you multi-select
@@ -220,7 +220,7 @@ object TimelinesQuizApp:
 
   private def timelineCard(timeline: QuizTimeline): Html[Msg] =
     Card(
-      div(cls := "flex items-center justify-between gap-3 p-6")(
+      div(cls := "flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:p-6")(
         div(
           cls := "flex flex-1 cursor-pointer items-center justify-between gap-3",
           onClick(Msg.SelectTimeline(timeline.id))
@@ -228,7 +228,13 @@ object TimelinesQuizApp:
           span(cls := "font-medium")(text(timeline.label)),
           Badge(s"${timeline.minYear}–${timeline.maxYear}", Badge.Variant.Secondary)
         ),
-        Button("View", Msg.OpenPreview(timeline.id), Button.Variant.Outline, Button.Size.Sm)
+        Button(
+          "View",
+          Msg.OpenPreview(timeline.id),
+          Button.Variant.Outline,
+          Button.Size.Sm,
+          "w-full sm:w-auto"
+        )
       )
     )
 
@@ -246,16 +252,20 @@ object TimelinesQuizApp:
           )
         )
       ),
-      Table(
-        Table.head(Table.row(Table.th("Name"), Table.th("Period"))),
-        Table.body(
-          entries.map(entry =>
-            Table.row(
-              Table.td(text(entry.name)),
-              Table.td(text(s"${entry.start}–${entry.end}"))
+      // A divided list rather than a scrolling table: columns fit any screen width, so the period
+      // stays visible on phones instead of forcing a horizontal scroll.
+      div(cls := "overflow-hidden rounded-lg border")(
+        div(
+          cls := "grid grid-cols-[1fr_auto] items-baseline gap-3 border-b bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground"
+        )(text("Name"), text("Period")),
+        div(cls := "divide-y")(entries.map(entry =>
+          div(cls := "grid grid-cols-[1fr_auto] items-baseline gap-3 px-3 py-3 text-sm")(
+            span(cls := "min-w-0 font-medium")(text(entry.name)),
+            span(cls := "shrink-0 tabular-nums text-muted-foreground")(
+              text(s"${entry.start}–${entry.end}")
             )
-          )*
-        )
+          )
+        )*)
       )
     )
 
@@ -263,7 +273,7 @@ object TimelinesQuizApp:
     model.selected match
       case None           => menuView
       case Some(timeline) =>
-        div(cls := "flex flex-col gap-4")(
+        div(cls := "flex flex-col gap-4 pb-10")(
           model.result.map(banner).getOrElse(div()()),
           div(cls := "flex items-baseline justify-between")(
             h1(cls := "text-sm font-medium text-muted-foreground")(text(timeline.label)),
@@ -287,9 +297,9 @@ object TimelinesQuizApp:
     val correctKeys = question.correct.map(Quiz.entryKey).toSet
     div(cls := "flex flex-col gap-4")(
       Card(
-        div(cls := "px-6 py-8 text-center")(
+        div(cls := "px-4 py-8 text-center sm:px-6")(
           p(cls := "text-xs uppercase tracking-widest text-muted-foreground")(text("Year")),
-          p(cls := "mt-1 text-6xl font-bold tabular-nums")(text(question.year.toString)),
+          p(cls := "mt-1 text-5xl font-bold tabular-nums sm:text-6xl")(text(question.year.toString)),
           p(cls := "mt-2 text-sm text-muted-foreground")(
             text("Which entries were active in this year?")
           )
@@ -376,13 +386,19 @@ object TimelinesQuizApp:
 
   private def footer(model: Model): Html[Msg] =
     div(cls := "border-t")(
-      div(cls := "flex items-center justify-between gap-2 py-3")(
+      div(cls := "flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between")(
         p(cls := "text-sm text-muted-foreground")(
           text(
             s"${model.total} question${if model.total == 1 then "" else "s"} · ${model.score} correct"
           )
         ),
-        Button("Back to timelines", Msg.BackToMenu, Button.Variant.Ghost, Button.Size.Sm)
+        Button(
+          "Back to timelines",
+          Msg.BackToMenu,
+          Button.Variant.Ghost,
+          Button.Size.Sm,
+          "w-full sm:w-auto"
+        )
       )
     )
 
