@@ -90,6 +90,7 @@ module so the exact same code runs on the JVM and in the browser.
 ├── db/                        # Database: Docker Compose, init SQL, sample data
 │   ├── docker-compose.yml                   # PostgreSQL on host port 5444 (optional local option)
 │   ├── sql/db.sql                           # Mounted into the container's init directory
+│   ├── sql/timelines.sql                    # `timelines` schema + seed data (also init-only)
 │   └── timelines.json                       # Sample timeline export (for import testing)
 │
 ├── .env.example               # Template for .env.local — copy it, never commit .env.local
@@ -515,7 +516,9 @@ Two things worth noting about this example:
 ### 8.4 Schema and seed data
 
 `db/sql/` is bind-mounted to `/docker-entrypoint-initdb.d`, which the official Postgres image runs
-**only on first initialisation of an empty data directory**. `db/sql/db.sql` therefore creates:
+**only on first initialisation of an empty data directory**. It contains two independent scripts.
+
+#### `db/sql/db.sql` — the legacy `jobs` table
 
 ```sql
 create table jobs(
@@ -534,24 +537,85 @@ create table jobs(
 ```
 
 …plus two seed rows (a "Rock the JVM / Instructor" job and a "Google / Software Engineer" job).
+It lands in `public` and **no code reads or writes it** — a leftover from an earlier jobs-board
+example. It is left in place rather than deleted, but nothing depends on it.
+
+#### `db/sql/timelines.sql` — the `timelines` schema
+
+This one is the real schema. It deliberately does **not** use `public`; everything lives under a
+`timelines` schema so the domain data is namespaced away from Postgres defaults.
+
+It models the two sealed traits in
+`common/shared/src/main/scala/com/crianonim/timelines/Timeline.scala`:
+
+```scala
+Period    = Point(TimePoint) | Closed(TimePoint, TimePoint) | Started(TimePoint)
+TimePoint = YearOnly(year) | YearMonth(year, month) | YearMonthDay(year, month, day)
+```
+
+```sql
+create type timelines.period_kind as enum ('point', 'closed', 'started');
+create type timelines.precision   as enum ('year', 'month', 'day');
+
+create table timelines.timeline (
+  id               text                   not null,
+  name             text                   not null,
+  period_kind      timelines.period_kind  not null,
+  start_year       integer                not null,
+  start_month      integer,
+  start_day        integer,
+  start_precision  timelines.precision    not null,
+  end_year         integer,
+  end_month        integer,
+  end_day          integer,
+  end_precision    timelines.precision,
+  constraint timeline_pkey primary key (id)
+  -- …plus seven CHECK constraints, see below
+);
+```
+
+The two design decisions worth understanding:
+
+1. **Precision is an explicit column, not inferred from NULLs.** `TimePoint` is a sealed trait, so
+   `YearOnly(2010)` and `YearMonth(2010, 1)` are *different variants* that would otherwise occupy
+   identical rows. The `*_precision` columns keep them distinguishable, and the check constraints
+   enforce that the month/day NULLs agree with the declared precision. This mirrors
+   `TimePoint.timePointFloorDate` / `timePointCeilDate` on the Scala side, where a `YearOnly` spans a
+   whole year and a `YearMonthDay` spans a single day.
+2. **`period_kind` decides whether an end exists.** `point` is a single moment and `started` is
+   open-ended, so both must have no end columns at all; `closed` must have them.
+
+The constraints encode the ADT's invariants, so bad data cannot be inserted at all:
+
+| Constraint | Rejects |
+| --- | --- |
+| `year_precision_has_no_month_or_day` | `start_precision='year'` with a month or day set |
+| `month_precision_is_explicit` | `precision='month'` without a month, or `'day'` without month+day |
+| `only_closed_has_an_end` | any end component on a `point` or `started` row |
+| `closed_must_have_an_end` | a `closed` row missing its end |
+| `period_not_backwards` | a `closed` period whose end precedes its start |
+| `month_in_range` / `day_in_range` | month outside 1–12, day outside 1–31 |
+| `timeline_pkey` | duplicate ids |
+
+The file then seeds the five rows from `db/timelines.json` with `on conflict (id) do nothing`, and
+finishes with a `SELECT` so running the file shows you the result. Every statement is guarded
+(`if not exists`, `DO` blocks, `on conflict`), so **re-running it is a no-op rather than an error**.
+
+> **Note on seed data:** `db/timelines.json` and `Timeline.examples` disagree on two entries —
+> `002` (`2023-08-07` vs `2024-07-08`) and `003` (`1999-10` vs `1999-09`). The SQL seeds from
+> `db/timelines.json`, which matches `TimelinesFromJSON`, i.e. the data the Timelines tab actually
+> renders. The `005` id gap is present upstream and preserved.
 
 > **Note on migrations:** there is no migration tool here — no Flyway, no Liquibase, no
-> `sbt-migration`. `db/sql/db.sql` is a plain init script. To re-apply it you must wipe the volume
-> (`docker compose down -v`) and start again, or apply the SQL by hand.
+> `sbt-migration`. Both files are plain init scripts that only apply to the local Docker option, and
+> only when the data directory is empty. A hosted database needs the SQL applied by hand:
 >
-> The `jobs` table is also unrelated to the feature code: no code reads or writes it. It is a
-> leftover from an earlier jobs-board example, and it exists mainly so the `information_schema` query
-> below has something to report.
-
-> **Note on migrations:** there is no migration tool here — no Flyway, no Liquibase, no
-> `sbt-migration`. `db/sql/db.sql` is a plain init script, and it only applies to the local Docker
-> option. A hosted database needs its schema created by whatever tool you prefer (`psql -f`, Drizzle,
-> a migration library — your call).
+> ```bash
+> set -a && . ./.env.local && set +a
+> psql -v ON_ERROR_STOP=1 -f db/sql/timelines.sql
+> ```
 >
-> The `jobs` table is also unrelated to the feature code: no code reads or writes it. It is a
-> leftover from an earlier jobs-board example, and it exists mainly so the `information_schema` query
-> below has something to report. A hosted database with an empty `public` schema will therefore
-> return `[]` from `/tables`, which is a correct and expected result.
+> To re-apply locally, wipe the volume: `docker compose down -v && docker compose up -d`.
 
 ### 8.5 The connection pool (Doobie + HikariCP)
 
@@ -601,8 +665,11 @@ trait Tables[F[_]]:
 class TablesLive[F[_]: Concurrent] private (transactor: Transactor[F]) extends Tables[F]:
   override def all: F[List[TableColumns]] =
     sql"""
-      Select table_name,column_name,data_type from information_schema.columns
-      WHERE table_schema = 'public'
+      Select table_name,column_name,data_type
+        from information_schema.columns
+       where table_schema not in ('pg_catalog', 'information_schema')
+         and table_schema not like 'pg_toast%'
+       order by table_schema, table_name, ordinal_position
     """.query[TableColumns]
       .stream.transact(transactor).compile.toList
 ```
@@ -610,7 +677,10 @@ class TablesLive[F[_]: Concurrent] private (transactor: Transactor[F]) extends T
 This is the entire data layer, and it is a nice, honest example of Doobie style:
 
 - `sql"..."` is Doobie's `Fragment` interpolator — **not** string interpolation, so it is safe.
-- The query returns one row per column of every table in the `public` schema.
+- The query returns one row per column of every table in every **non-system** schema. It used to
+  hardcode `table_schema = 'public'`, which hid the `timelines` schema entirely; excluding
+  `pg_catalog` / `information_schema` / `pg_toast%` is the standard way to get "the user's tables"
+  out of `information_schema`.
 - `.query[TableColumns]` derives the `Read[TableColumns]` automatically by matching the three
   selected columns positionally against the case class's three fields.
 - `.stream` fetches rows lazily, `.transact(transactor)` runs it, `.compile.toList` forces it into a
@@ -741,7 +811,10 @@ select * from information_schema.tables
    AND table_schema NOT IN ('pg_catalog', 'information_schema');
 
 -- psql-specific
-select * from pg_catalog.pg_tables where schemaname = 'public';
+select * from pg_catalog.pg_tables where schemaname = 'timelines';
+
+-- the seed data
+select * from timelines.timeline order by id;
 ```
 
 **Reading the DB from Scala without the server** — `Tables.scala` contains a standalone
@@ -756,13 +829,13 @@ Expected output against the current `.env.local`:
 
 ```
 Querying ep-...neon.tech:5432/neondb (user=neondb_owner)
-List()
+List(TableColumns(timeline,id,text), TableColumns(timeline,name,text), ...)
 ```
 
-The `List()` is because Neon's `public` schema is currently empty — the query is
-`information_schema.columns WHERE table_schema = 'public'`, so no tables means no rows. It is a
-correct result, and it confirms credentials, TLS and channel binding all work. Against the local
-Docker database you would instead see the `jobs` table's columns.
+Seeing `timeline`'s columns means three things at once: the credentials resolve, TLS and channel
+binding work, **and** `db/sql/timelines.sql` has been applied. The `USER-DEFINED` `data_type` values
+you will see for `period_kind`, `start_precision` and `end_precision` are how `information_schema`
+reports enum columns.
 
 This is the fastest way to confirm your configuration without starting the HTTP server.
 
@@ -780,8 +853,8 @@ This is the fastest way to confirm your configuration without starting the HTTP 
                             │
                             ▼
                      TablesLive.all     SELECT table_name, column_name, data_type
-                            │          FROM   information_schema.columns
-                            │          WHERE  table_schema = 'public'
+                             │          FROM   information_schema.columns
+                             │          WHERE  table_schema NOT IN ('pg_catalog', …)
                             ▼
                      TablesRoutes       GET /tables ──▶ 200 application/json
                             │
@@ -826,8 +899,9 @@ tests, Testcontainers is already wired up:
 PostgreSQLContainer("postgres")  // no fixed port; use .getJdbcUrl / .getUsername / .getPassword
 ```
 
-Note that `db.sql` is **not** applied by Testcontainers in that setup; you'd mount or execute it
-yourself.
+Note that neither `db/sql/db.sql` nor `db/sql/timelines.sql` is **applied** by Testcontainers in that
+setup; you'd mount or execute them yourself. `timelines.sql` is self-contained and idempotent, so it
+is safe to run against a throwaway container.
 
 **Do not point tests at your `.env.local`.** A test that calls `DbConfig.load()` would read the real
 credentials and hit the real database. Testcontainers is the right tool precisely because it gives
@@ -973,7 +1047,7 @@ set -a && . ./.env.local && set +a && psql      # hand the same creds to psql
 
 cd db && docker compose up -d
 cd db && docker compose down        # stop (keep data)
-cd db && docker compose down -v     # stop and WIPE the volume (re-runs sql/db.sql next start)
+cd db && docker compose down -v     # stop and WIPE the volume (re-runs db/sql/*.sql next start)
 docker exec -it db-db-1 psql -U docker
 psql postgresql://docker:docker@localhost:5444/docker
 
@@ -998,12 +1072,13 @@ start working on the backend.
 2. **`.env.local` is a secret.** It holds a live Neon password. It is git-ignored
    (`.gitignore:180-183`), and `!.env.example` keeps the template committable — do not remove that
    negation. If you ever commit the real file, rotate the password; git history will not forget.
-3. **No migration tool.** `db/sql/db.sql` runs only when the Postgres data directory is empty, and it
-   only applies to the local Docker option. After editing it you need
-   `docker compose down -v && docker compose up -d`. A hosted database has no schema management here.
-4. **The `jobs` table is unused.** No code reads or writes it; it exists so the
-   `information_schema` query has something to list. A hosted database with an empty `public` schema
-   legitimately returns `[]`.
+3. **No migration tool.** Files in `db/sql/` run only when the Postgres data directory is empty, and
+   only for the local Docker option. After editing one you need
+   `docker compose down -v && docker compose up -d`. For a hosted database, apply it by hand with
+   `psql -v ON_ERROR_STOP=1 -f db/sql/timelines.sql` — that is how the `timelines` schema got onto
+   the Neon database. Both scripts are idempotent, so re-applying is safe.
+4. **The `jobs` table is unused.** No code reads or writes it, and it is the only thing left in
+   `public`. Safe to delete `db/sql/db.sql` if you want `public` to be empty.
 5. **`app/app.js` hardcodes `target/scala-3.6.4/app-fastopt.js`.** Bump `scalaVersion` or switch to
    `fullOptJS` and Parcel will not find the module until you update that import.
 6. **The version string is duplicated in `Dockerfile`.** `server-assembly-1.0.1.jar` and
@@ -1021,9 +1096,14 @@ start working on the backend.
     `File => IO[DbConfig]`, not an `IO[DbConfig]`. The compiler error is confusing; the fix is
     `DbConfig.load()`.
 12. **Assets that are not wired up:** `app/static/img/*` and `app/css/style.css` are not referenced by
-    `index.html` or any Scala source, and `add_monarchs.json` / `db/timelines.json` are sample data
-    (only `timelines.json`'s *format* matters, since the Timelines tab exports that filename).
-    `moment` is in `package.json` but is not imported from Scala.
+    `index.html` or any Scala source, and `add_monarchs.json` is sample data. `db/timelines.json` is
+    also the source `db/sql/timelines.sql` seeds from, though the Timelines tab only ever reads the
+    *format*, since it exports to that filename. `moment` is in `package.json` but is not imported
+    from Scala.
+13. **`timelines.timeline` is not read by any code yet.** The schema, constraints and seed data are
+    real, and `/tables` lists the columns, but no Doobie query reads the rows — the Timelines tab
+    still loads its data from `TimelinesFromJSON` in the frontend. The table is the persistence layer
+    waiting for its repository.
 13. **`CLAUDE.md` is partly stale** — it lists older dependency versions (http4s 0.23.15, doobie
     RC1, circe 0.14.0, cats-effect 3.6.3, fastparse 3.1.1, munit 1.2.4) and says the DB is on a
     `postgres:latest` container started with plain `docker run`. The authoritative versions are in

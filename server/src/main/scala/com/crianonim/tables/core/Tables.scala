@@ -14,10 +14,16 @@ trait Tables[F[_]] {
 }
 
 class TablesLive[F[_]: Concurrent] private (transactor: Transactor[F]) extends Tables[F] {
+  // Lists every non-system schema, so user data in schemas other than `public` (e.g.
+  // `timelines`) shows up too. The pg_catalog / information_schema / pg_toast filters are the
+  // standard way to exclude Postgres' own bookkeeping from an information_schema listing.
   override def all: F[List[TableColumns]] =
     sql"""
-      Select table_name,column_name,data_type from information_schema.columns
-      WHERE table_schema = 'public'
+      Select table_name,column_name,data_type
+        from information_schema.columns
+       where table_schema not in ('pg_catalog', 'information_schema')
+         and table_schema not like 'pg_toast%'
+       order by table_schema, table_name, ordinal_position
     """.query[TableColumns]
       .stream.transact(transactor).compile.toList
 }
