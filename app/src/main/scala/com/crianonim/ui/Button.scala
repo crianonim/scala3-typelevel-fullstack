@@ -39,9 +39,11 @@ object Button {
       label: String,
       msg: A,
       variant: Variant = Variant.Primary,
-      size: Size = Size.Medium
+      size: Size = Size.Medium,
+      className: String = ""
   ): Html[A] = {
-    val classes = s"$baseClasses ${variantClasses(variant)} ${sizeClasses(size)}"
+    val classes =
+      s"$baseClasses ${variantClasses(variant)} ${sizeClasses(size)} $className".trim
     val attrs = variant match {
       case Variant.Disabled => List(cls := classes, attribute("disabled", "true"))
       case _                => List(onClick(msg), cls := classes)

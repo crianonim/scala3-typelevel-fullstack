@@ -7,7 +7,8 @@ import scala.scalajs.js
 import tyrian.*
 import tyrian.Html.*
 
-import com.crianonim.ui.{Button, Card, FileInput, Input}
+import com.crianonim.shadcn.Icons
+import com.crianonim.ui.{Button, Card, FileInput, Input, Tooltip}
 
 /** The Janscape tab: a Tyrian reimplementation of the Next.js app's screens (main menu, play hub,
   * mine, craft, build, forest) on top of the shared mechanics in `common`.
@@ -28,12 +29,19 @@ object JanscapeApp:
   enum Screen:
     case Menu, Play, Mine, Craft, Build, Forest
 
+  /** The collapsible HUD sections: a closed section is a single button in the top row and opens
+    * into its full list when pressed.
+    */
+  enum HudPane:
+    case Inventory, Equipment, Workstations
+
   case class Model(
       config: GameConfig,
       character: Option[Character],
       screen: Screen,
       mineEntry: Option[Int],
       forestEntry: Option[Int],
+      hudOpen: Set[HudPane],
       showOptions: Boolean,
       nameInput: String,
       nameError: Option[String],
@@ -47,6 +55,7 @@ object JanscapeApp:
     case SetName(value: String)
     case NewCharacter
     case GoTo(next: Screen)
+    case ToggleHud(pane: HudPane)
     case ToggleOptions
     case ImportCharacter(file: dom.File)
     case CharacterLoaded(result: Either[GameError, Character])
@@ -75,6 +84,7 @@ object JanscapeApp:
     screen = Screen.Menu,
     mineEntry = None,
     forestEntry = None,
+    hudOpen = Set.empty,
     showOptions = false,
     nameInput = "",
     nameError = None,
@@ -119,6 +129,39 @@ object JanscapeApp:
   private def failed(model: Model, error: GameError): (Model, Cmd[IO, Msg]) =
     (model.copy(error = Some(error.message)), Cmd.None)
 
+  /** Effectful entry into the mine: the floor roll decides the nodes. Shared by the level picker
+    * (Msg.EnterMine) and the direct entry when only the starting level is unlocked (Msg.GoTo).
+    */
+  private def enterMine(model: Model, level: Int): (Model, Cmd[IO, Msg]) =
+    model.character match
+      case None => (model, Cmd.None)
+      case Some(character) =>
+        val config = model.config
+        (
+          model,
+          Cmd.Run {
+            Random.scalaUtilRandom[IO].flatMap { implicit r =>
+              Mining.enterMine[IO](character, level, config)
+            }
+          }(next => Msg.EnteredMine(level, next))
+        )
+
+  /** Effectful entry into the forest, mirroring `enterMine`.
+    */
+  private def enterForest(model: Model, depth: Int): (Model, Cmd[IO, Msg]) =
+    model.character match
+      case None => (model, Cmd.None)
+      case Some(character) =>
+        val config = model.config
+        (
+          model,
+          Cmd.Run {
+            Random.scalaUtilRandom[IO].flatMap { implicit r =>
+              Forest.enterForest[IO](character, depth, config)
+            }
+          }(next => Msg.EnteredForest(depth, next))
+        )
+
   // ============ UPDATE ============
 
   def update(model: Model): Msg => (Model, Cmd[IO, Msg]) = {
@@ -147,14 +190,25 @@ object JanscapeApp:
           )
 
     case Msg.GoTo(next) =>
+      val updated = model.copy(
+        screen = next,
+        mineEntry = None,
+        forestEntry = None,
+        showOptions = false,
+        lastAction = None,
+        error = None
+      )
+      model.character match
+        case Some(character) if next == Screen.Mine && Mining.entryLevels(character).size == 1 =>
+          enterMine(updated, Mining.entryLevels(character).head)
+        case Some(character) if next == Screen.Forest && Forest.entryDepths(character).size == 1 =>
+          enterForest(updated, Forest.entryDepths(character).head)
+        case _ => (updated, Cmd.None)
+
+    case Msg.ToggleHud(pane) =>
       (
         model.copy(
-          screen = next,
-          mineEntry = None,
-          forestEntry = None,
-          showOptions = false,
-          lastAction = None,
-          error = None
+          hudOpen = if model.hudOpen.contains(pane) then model.hudOpen - pane else model.hudOpen + pane
         ),
         Cmd.None
       )
@@ -250,19 +304,7 @@ object JanscapeApp:
 
     // ---- Mine (effectful: the floor roll and the swings are random) ----
 
-    case Msg.EnterMine(level) =>
-      model.character match
-        case None            => (model, Cmd.None)
-        case Some(character) =>
-          val config = model.config
-          (
-            model,
-            Cmd.Run {
-              Random.scalaUtilRandom[IO].flatMap { implicit r =>
-                Mining.enterMine[IO](character, level, config)
-              }
-            }(next => Msg.EnteredMine(level, next))
-          )
+    case Msg.EnterMine(level) => enterMine(model, level)
 
     case Msg.EnteredMine(level, next) =>
       val (updated, cmd) = applied(model, next, Some(s"You enter the mine at level $level."))
@@ -306,19 +348,7 @@ object JanscapeApp:
 
     // ---- Forest (effectful: the glade roll and the gathers are random) ----
 
-    case Msg.EnterForest(depth) =>
-      model.character match
-        case None            => (model, Cmd.None)
-        case Some(character) =>
-          val config = model.config
-          (
-            model,
-            Cmd.Run {
-              Random.scalaUtilRandom[IO].flatMap { implicit r =>
-                Forest.enterForest[IO](character, depth, config)
-              }
-            }(next => Msg.EnteredForest(depth, next))
-          )
+    case Msg.EnterForest(depth) => enterForest(model, depth)
 
     case Msg.EnteredForest(depth, next) =>
       val (updated, cmd) = applied(model, next, Some(s"You enter the forest at depth $depth."))
@@ -423,9 +453,6 @@ object JanscapeApp:
   private def parseBatch(raw: String): Option[Int] =
     scala.util.Try(raw.trim.toInt).toOption
 
-  private def clampBatch(raw: Option[String], max: Int): Int =
-    math.min(math.max(1, raw.flatMap(parseBatch).getOrElse(1)), math.max(1, max))
-
   private def saveFilename(character: Character): String =
     val slug = slugify(character.name)
     s"${if slug.isEmpty then "character" else slug}.json"
@@ -459,9 +486,13 @@ object JanscapeApp:
           case None =>
             div(cls := "py-8 text-sm text-gray-500")(text("Loading character…"))
           case Some(character) =>
-            div(cls := "flex gap-4 items-start")(
-              div(cls := "flex-1 flex justify-center")(viewMain(model, character)),
-              viewHud(model, character)
+            val config = model.config
+            div(cls := "flex flex-col gap-4")(
+              div(cls := "flex justify-center")(viewStatusBar(character, config)),
+              div(cls := "flex flex-col gap-4 md:flex-row md:items-start")(
+                div(cls := "flex-1 flex justify-center")(viewMain(model, character)),
+                viewHud(model, character)
+              )
             )
 
   private def viewMain(model: Model, character: Character): Html[Msg] =
@@ -478,6 +509,57 @@ object JanscapeApp:
       Card.withHeader(title, description)(content*)
     )
 
+  /** Same as `card`, but the header is one row: title (and optional description) on the left and a
+    * small back-arrow button on the far right. The arrow returns to the play hub; the tooltip
+    * spells out the full `leaveLabel` ("Leave Mine", "Leave Craft", …).
+    */
+  private def cardWithLeave(
+      title: String,
+      description: String,
+      leaveLabel: String
+  )(content: Html[Msg]*): Html[Msg] =
+    div(cls := "w-full max-w-sm")(
+      Card.apply(Card.Props())(
+        Some(
+          div(cls := "flex items-center justify-between gap-2")(
+            div(cls := "flex min-w-0 flex-col gap-1")(
+              h2(cls := "truncate text-xl font-semibold")(text(title)),
+              if description.nonEmpty then p(cls := "text-gray-600")(text(description)) else div()()
+            ),
+            Tooltip.text(leaveLabel, backButton)
+          )
+        ),
+        content*
+      )
+    )
+
+  private val backButton: Html[Msg] =
+    iconButton(Msg.GoTo(Screen.Play), Icons.arrowLeft[Msg]("size-4"), "Back to Home Village", false)
+
+  /** A small icon button for the floor action bars (the back arrow, Go Down, Go Deeper). Enabled
+    * state is wrapped in `Tooltip.text` so the full action ("Go Down (20 turns)") shows on hover;
+    * a disabled button renders plain grey and can't hover.
+    */
+  private def iconButton(
+      msg: Msg,
+      icon: Html[Msg],
+      tooltip: String,
+      disabled: Boolean
+  ): Html[Msg] =
+    val enabled = !disabled
+    val el =
+      if enabled then
+        button(
+          cls := "inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-gray-300 text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+          onClick(msg)
+        )(icon)
+      else
+        button(
+          cls := "inline-flex size-9 shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-300 bg-gray-200 text-gray-400",
+          attribute("disabled", "true")
+        )(icon)
+    if enabled then Tooltip.text(tooltip, el) else el
+
   private def note(model: Model): Html[Msg] =
     model.lastAction match
       case Some(value) => div(cls := "text-sm text-gray-600")(text(value))
@@ -491,10 +573,13 @@ object JanscapeApp:
   private def hint(value: String): Html[Msg] =
     div(cls := "text-xs text-gray-500")(text(value))
 
-  private def restButton(character: Character, restTurns: Int): Html[Msg] =
-    val label = s"Rest (${turnWord(restTurns)})"
-    if Fatigue.canRest(character) then Button.secondary(label, Msg.Rest)
-    else Button.disabledButton(label)
+  private def restZzz(character: Character, restTurns: Int): Html[Msg] =
+    if Fatigue.canRest(character) then
+      Tooltip.text(
+        s"Rest (${turnWord(restTurns)})",
+        Button.secondary("Zzz", Msg.Rest, Button.Size.Small)
+      )
+    else Button.disabledButton("Zzz", Button.Size.Small)
 
   // ---- Main menu ----
 
@@ -522,7 +607,7 @@ object JanscapeApp:
   // ---- Play hub (the original's options menu) ----
 
   private def viewPlay(model: Model, character: Character): Html[Msg] =
-    card(character.name, "Playing")(
+    card("Home Village", "Pick an activity.")(
       div(cls := "flex flex-col gap-4")(
         viewSkills(character, model.config),
         if !model.showOptions then
@@ -555,7 +640,7 @@ object JanscapeApp:
 
   private def viewMineEntry(model: Model, character: Character): Html[Msg] =
     val everyLevels = model.config.mining.fastTravel.everyLevels
-    card("Enter the mine", s"${character.name} — pick a level to start at.")(
+    card("Enter the mine", "Pick a level to start at.")(
       div(cls := "flex flex-col gap-4")(
         Mining.entryLevels(character).map { level =>
           if level == Character.StartingMineLevel then
@@ -582,10 +667,34 @@ object JanscapeApp:
       .map((item, _) => item)
       .filterNot(Mining.canMine(_, character, config))
       .map(item => item -> GameConfig.miningPowerFor(item, config.mining.materials).getOrElse(0))
+    val nodes =
+      distinctNodes(character.mineNodes).map { (item, count) =>
+        if Mining.canMine(item, character, config) then
+          val turns   = Mining.turnsFor(item, character, config)
+          val fatigue =
+            math.round(Mining.fatigueChanceFor(item, character, config) * 100).toInt
+          Button(
+            s"$item ($count) · ${turns}t · $fatigue% fat",
+            Msg.MineNode(item),
+            Button.Variant.Primary,
+            Button.Size.Small,
+            "w-full"
+          )
+        else
+          val required = GameConfig.miningPowerFor(item, config.mining.materials).getOrElse(0)
+          Button(
+            s"$item ($count) · needs power $required",
+            Msg.MineNode(item),
+            Button.Variant.Disabled,
+            Button.Size.Small,
+            "w-full"
+          )
+      }
 
-    card(
-      s"Mine level ${character.mineLevel}",
-      s"${character.name} — mining power $power, depth factor ${factorLabel(depthFactor)}"
+    cardWithLeave(
+      s"Mine ${character.mineLevel}, Power $power, DF ${factorLabel(depthFactor)}",
+      "",
+      "Leave Mine"
     )(
       div(cls := "flex flex-col gap-4")(
         if character.hasMineLadder then
@@ -600,22 +709,17 @@ object JanscapeApp:
         else div()(),
         viewSkills(character, config),
         if character.mineNodes.nonEmpty then
-          div(cls := "flex flex-col gap-2")(
-            distinctNodes(character.mineNodes).map { (item, count) =>
-              if Mining.canMine(item, character, config) then
-                val turns   = Mining.turnsFor(item, character, config)
-                val fatigue =
-                  math.round(Mining.fatigueChanceFor(item, character, config) * 100).toInt
-                Button.primary(
-                  s"Mine $item ($count) · ${turnWord(turns)} · $fatigue% fatigue",
-                  Msg.MineNode(item)
-                )
-              else
-                val required = GameConfig.miningPowerFor(item, config.mining.materials).getOrElse(0)
-                Button.disabledButton(s"Mine $item ($count) — needs power $required")
-            }
-          )
+          div(cls := "flex flex-col gap-2")(nodes*)
         else div(cls := "text-sm text-gray-500")(text("You have cleared this level.")),
+        div(cls := "flex items-center gap-2")(
+          restZzz(character, restTurns),
+          iconButton(
+            Msg.Descend,
+            Icons.arrowDown[Msg]("size-4"),
+            s"Go Down (${turnWord(ladder.descendTurns)})",
+            !Mining.canDescend(character)
+          )
+        ),
         if locked.nonEmpty then
           hint(
             s"This level cannot be cleared until you can break " +
@@ -624,11 +728,6 @@ object JanscapeApp:
         else div()(),
         banner(model),
         note(model),
-        if Mining.canDescend(character) then
-          Button.secondary(s"Go Down (${turnWord(ladder.descendTurns)})", Msg.Descend)
-        else Button.disabledButton(s"Go Down (${turnWord(ladder.descendTurns)})"),
-        restButton(character, restTurns),
-        Button.secondary("Leave Mine", Msg.GoTo(Screen.Play)),
         hint(
           s"You land ${math.round(Fatigue.landChance(character.fatigue, config.play) * 100).toInt}% " +
             s"of swings at your current fatigue. Going down costs ${ladder.descendTurns} turns " +
@@ -645,20 +744,18 @@ object JanscapeApp:
     val config   = model.config
     val recipes  = config.crafting.recipes
     val smithing = character.skills(SkillName.Smithing)
-    card(
+    cardWithLeave(
       "Craft",
-      s"${character.name} — smithing level ${smithing.level}, so a batch is capped at ${smithing.level}."
+      s"Smithing level ${smithing.level} caps a batch at ${smithing.level}.",
+      "Leave Craft"
     )(
       div(cls := "flex flex-col gap-4")(
         viewSkills(character, config),
         div(cls := "flex flex-col gap-3")(
           recipes.toList.map { (item, recipe) =>
-            val unlocked    = Crafting.isUnlocked(character, item, recipes)
-            val max         = Crafting.maxCraftable(character, item, recipes)
-            val amount      = clampBatch(model.craftAmounts.get(item), max)
-            val turns       = amount * recipe.turns
-            val buttonLabel = s"Craft (${turnWord(turns)})"
-            val status      =
+            val unlocked = Crafting.isUnlocked(character, item, recipes)
+            val max      = Crafting.maxCraftable(character, item, recipes)
+            val status   =
               if !unlocked then s"Needs Smithing level ${recipe.level}."
               else if max == 0 then
                 val held = recipe.inputs.keys
@@ -666,30 +763,42 @@ object JanscapeApp:
                   .mkString(", ")
                 s"Not enough materials. You have $held."
               else s"You can make up to $max."
-            div(cls := "flex flex-col gap-2 rounded-lg border p-3")(
-              div(cls := "flex items-baseline justify-between gap-2")(
-                div(cls := "font-medium")(text(item)),
-                hint(s"${turnWord(recipe.turns)} each")
+            val needs = recipe.inputs.toList.map((input, n) => s"$n $input").mkString(", ")
+            Tooltip.expanded(
+              div(cls := "flex flex-col text-left whitespace-normal")(
+                div()(text(s"${turnWord(recipe.turns)} each, needs $needs.")),
+                div(cls := "text-gray-300")(text(status))
               ),
-              hint(
-                s"Needs ${recipe.inputs.toList.map((input, n) => s"$n $input").mkString(", ")}."
-              ),
-              div(cls := "flex items-center gap-2")(
-                Input.interactive(
-                  model.craftAmounts.getOrElse(item, "1"),
-                  (value: String) => Msg.SetCraftAmount(item, value),
-                  "number"
+              div(
+                cls := "flex w-full items-center justify-between gap-2 rounded-lg border p-2"
+              )(
+                div(cls := "font-medium whitespace-nowrap")(text(item)),
+                div(cls := "flex flex-wrap items-center gap-x-2 text-sm")(
+                  recipe.inputs.toList.map { (input, n) =>
+                    val have = Character.heldAmount(character, input) >= n
+                    span(cls := (if have then "text-emerald-600" else "text-red-600"))(
+                      text(s"$n $input")
+                    )
+                  }*
                 ),
-                if unlocked && max > 0 then Button.primary(buttonLabel, Msg.Craft(item))
-                else Button.disabledButton(buttonLabel)
-              ),
-              hint(status)
+                div(cls := "flex items-center gap-2")(
+                  div(cls := "w-12")(
+                    Input.interactive(
+                      model.craftAmounts.getOrElse(item, "1"),
+                      (value: String) => Msg.SetCraftAmount(item, value),
+                      "number",
+                      "px-1 py-1 text-sm"
+                    )
+                  ),
+                  if unlocked && max > 0 then Button.primary("Craft", Msg.Craft(item), Button.Size.Small)
+                  else Button.disabledButton("Craft", Button.Size.Small)
+                )
+              )
             )
           }
         ),
         banner(model),
         note(model),
-        Button.secondary("Leave Craft", Msg.GoTo(Screen.Play)),
         hint(
           "Crafting spends turns and earns the same amount of Smithing XP. Every recipe is " +
             "available from the start; the Smithing level only caps how large a batch can be."
@@ -706,14 +815,14 @@ object JanscapeApp:
     val builtLabel =
       if built == 0 then "no workstations built yet"
       else s"$built workstation${if built == 1 then "" else "s"} built"
-    card("Build", s"${character.name} — $builtLabel.")(
+    cardWithLeave("Build", s"${builtLabel.capitalize}.", "Leave Build")(
       div(cls := "flex flex-col gap-4")(
         viewSkills(character, config),
         div(cls := "flex flex-col gap-3")(
           buildables.toList.map { (name, buildable) =>
             val alreadyBuilt = Building.isBuilt(character, name)
             val ready        = Building.canBuild(character, name, buildables)
-            val status       =
+            val status =
               if alreadyBuilt then "Only one can exist."
               else if ready then "Ready to build."
               else
@@ -721,25 +830,37 @@ object JanscapeApp:
                   .map(input => s"${Character.heldAmount(character, input)} $input")
                   .mkString(", ")
                 s"Not enough materials. You have $held."
-            div(cls := "flex flex-col gap-2 rounded-lg border p-3")(
-              div(cls := "flex items-baseline justify-between gap-2")(
-                div(cls := "font-medium")(text(name)),
-                hint(turnWord(buildable.turns))
+            val needs =
+              buildable.inputs.toList.map((input, n) => s"$n $input").mkString(", ")
+            Tooltip.expanded(
+              div(cls := "flex flex-col text-left whitespace-normal")(
+                div()(text(s"${turnWord(buildable.turns)} to build, needs $needs.")),
+                div(cls := "text-gray-300")(text(status))
               ),
-              hint(
-                s"Needs ${buildable.inputs.toList.map((item, n) => s"$n $item").mkString(", ")}."
-              ),
-              if alreadyBuilt then Button.disabledButton("Built")
-              else if ready then
-                Button.primary(s"Build (${turnWord(buildable.turns)})", Msg.Build(name))
-              else Button.disabledButton(s"Build (${turnWord(buildable.turns)})"),
-              hint(status)
+              div(
+                cls := "flex w-full items-center justify-between gap-2 rounded-lg border p-2"
+              )(
+                div(cls := "font-medium whitespace-nowrap")(text(name)),
+                div(cls := "flex flex-wrap items-center gap-x-2 text-sm")(
+                  buildable.inputs.toList.map { (input, n) =>
+                    val have = Character.heldAmount(character, input) >= n
+                    span(cls := (if have then "text-emerald-600" else "text-red-600"))(
+                      text(s"$n $input")
+                    )
+                  }*
+                ),
+                if alreadyBuilt then
+                  span(
+                    cls := "rounded-full border border-gray-300 bg-gray-100 px-3 py-1 text-sm font-medium text-gray-500"
+                  )(text("Done"))
+                else if ready then Button.primary("Build", Msg.Build(name), Button.Size.Small)
+                else Button.disabledButton("Build", Button.Size.Small)
+              )
             )
           }
         ),
         banner(model),
         note(model),
-        Button.secondary("Leave Build", Msg.GoTo(Screen.Play)),
         hint(
           "Building spends materials and turns and nothing else: no XP, no fatigue. Each " +
             "workstation is a one-off, and only one of each can exist."
@@ -756,7 +877,7 @@ object JanscapeApp:
 
   private def viewForestEntry(model: Model, character: Character): Html[Msg] =
     val everyLevels = model.config.forest.fastTravel.everyLevels
-    card("Enter the forest", s"${character.name} — pick a depth to start at.")(
+    card("Enter the forest", "Pick a depth to start at.")(
       div(cls := "flex flex-col gap-4")(
         Forest.entryDepths(character).map { depth =>
           if depth == Character.StartingForestLevel then
@@ -778,9 +899,30 @@ object JanscapeApp:
     val depthFactor = Forest.forestDepthFactor(character, config.forest)
     val path        = config.forest.path
     val restTurns   = config.play.rest.turns
-    card(
-      s"Forest depth ${character.forestLevel}",
-      s"${character.name} — depth factor ${factorLabel(depthFactor)}"
+    val nodes =
+      distinctNodes(character.forestNodes).map { (item, count) =>
+        val tiring  = config.forest.resources.get(item).exists(_.tiring)
+        val turns   = Forest.turnsFor(item, config).getOrElse(0)
+        val range   = Forest.yieldRange(item, character, config).getOrElse(YieldRange(0, 0))
+        val fatigue =
+          if tiring then
+            math
+              .round(Forest.fatigueChanceFor(item, character, config).getOrElse(0.0) * 100)
+              .toInt
+          else 0
+        val worn = if tiring then s" · $fatigue% fat" else ""
+        Button(
+          s"$item ($count) · ${turns}t · ${range.min}-${range.max}$worn",
+          Msg.Harvest(item),
+          Button.Variant.Primary,
+          Button.Size.Small,
+          "w-full"
+        )
+      }
+    cardWithLeave(
+      s"Forest ${character.forestLevel}, DF ${factorLabel(depthFactor)}",
+      "",
+      "Leave Forest"
     )(
       div(cls := "flex flex-col gap-4")(
         if character.hasForestPath then
@@ -795,33 +937,19 @@ object JanscapeApp:
         else div()(),
         viewSkills(character, config),
         if character.forestNodes.nonEmpty then
-          div(cls := "flex flex-col gap-2")(
-            distinctNodes(character.forestNodes).map { (item, count) =>
-              val tiring  = config.forest.resources.get(item).exists(_.tiring)
-              val turns   = Forest.turnsFor(item, config).getOrElse(0)
-              val range   = Forest.yieldRange(item, character, config).getOrElse(YieldRange(0, 0))
-              val fatigue =
-                if tiring then
-                  math
-                    .round(Forest.fatigueChanceFor(item, character, config).getOrElse(0.0) * 100)
-                    .toInt
-                else 0
-              val verb = if tiring then "Chop" else "Gather"
-              val worn = if tiring then s" · $fatigue% fatigue" else ""
-              Button.primary(
-                s"$verb $item ($count) · ${turnWord(turns)} · ${range.min}-${range.max}$worn",
-                Msg.Harvest(item)
-              )
-            }
-          )
+          div(cls := "flex flex-col gap-2")(nodes*)
         else div(cls := "text-sm text-gray-500")(text("You have cleared this glade.")),
+        div(cls := "flex items-center gap-2")(
+          restZzz(character, restTurns),
+          iconButton(
+            Msg.GoDeeper,
+            Icons.arrowDown[Msg]("size-4"),
+            s"Go Deeper (${turnWord(path.deeperTurns)})",
+            !Forest.canGoDeeper(character)
+          )
+        ),
         banner(model),
         note(model),
-        if Forest.canGoDeeper(character) then
-          Button.secondary(s"Go Deeper (${turnWord(path.deeperTurns)})", Msg.GoDeeper)
-        else Button.disabledButton(s"Go Deeper (${turnWord(path.deeperTurns)})"),
-        restButton(character, restTurns),
-        Button.secondary("Leave Forest", Msg.GoTo(Screen.Play)),
         hint(
           s"${math.round(Fatigue.landChance(character.fatigue, config.play) * 100).toInt}% of chops " +
             "land at your current fatigue; gathering never tires you out. Going deeper costs " +
@@ -834,34 +962,52 @@ object JanscapeApp:
     )
 
   // ---- Skills ----
+  // Compact on every screen: a 3-letter shortcut, the level and a thin progress bar. The full
+  // details (name, XP, XP to the next level) surface on hover.
+  private def skillShort(name: SkillName): String = name match
+    case SkillName.Mining   => "MIN"
+    case SkillName.Combat   => "CMB"
+    case SkillName.Smithing => "SMI"
+    case SkillName.Forestry => "FOR"
 
   private def viewSkills(character: Character, config: GameConfig): Html[Msg] =
-    div(cls := "flex flex-col")(
-      List[Html[Msg]](
-        div(cls := "flex text-xs font-medium text-gray-500 pb-1")(
-          div(cls := "flex-1")(text("Skill")),
-          div(cls := "w-16 text-right")(text("Level")),
-          div(cls := "w-28 text-right")(text("XP"))
-        )
-      ) ++ SkillNames.map { name =>
+    div(cls := "grid grid-cols-4 gap-2")(
+      SkillNames.map { name =>
         val skill    = character.skills(name)
         val progress = Xp.levelProgress(skill.xp, config.skills)
-        div(cls := "flex items-baseline border-t border-gray-100 py-1 text-sm")(
-          div(cls := "flex-1 font-medium")(text(name.toString)),
-          div(cls := "w-16 text-right tabular-nums")(text(skill.level.toString)),
-          div(cls := "w-28 text-right tabular-nums")(
-            div()(text(skill.xp.toString)),
+        val width    = math.round(progress.percent * 100).toInt
+        Tooltip.expanded(
+          div(cls := "max-w-40 whitespace-normal text-left")(
+            div(cls := "font-semibold")(text(name.toString)),
+            div()(text(s"Level ${skill.level}")),
+            div(cls := "text-gray-300")(text(s"${skill.xp} XP")),
             if progress.xpForNextLevel > 0 then
-              div(cls := "text-xs text-gray-400")(
-                text(s"${math.round(progress.xpForNextLevel).toInt} to ${progress.level + 1}")
+              div(cls := "text-gray-300")(
+                text(s"${math.round(progress.xpForNextLevel).toInt} XP to ${progress.level + 1}")
               )
-            else div()()
+            else div(cls := "text-gray-300")(text("Max level"))
+          ),
+          div(
+            cls := "flex w-full flex-col items-center gap-1 rounded-lg border border-gray-100 px-1 py-2"
+          )(
+            span(cls := "text-[11px] font-semibold tracking-wide text-gray-500")(
+              text(skillShort(name))
+            ),
+            span(cls := "text-sm font-semibold tabular-nums")(text(skill.level.toString)),
+            div(cls := "h-1.5 w-full overflow-hidden rounded-full bg-gray-200")(
+              div(
+                cls := "h-1.5 rounded-full bg-gray-700",
+                attribute("style", s"width: $width%")
+              )()
+            )
           )
         )
       }
     )
 
-  // ---- Status HUD (the original's fixed side panels) ----
+  // ---- HUD: collapsible sections. Closed, each is a button in a horizontal row (a stacked column
+  //      in the side panel from md up); pressing one expands the full list underneath. Turns and
+  //      fatigue live in the top status bar instead. ----
 
   private def hudCard(title: String)(content: Html[Msg]*): Html[Msg] =
     Card.simple(Card.Variant.Default, Card.Padding.Small)(
@@ -872,67 +1018,102 @@ object JanscapeApp:
       )
     )
 
+  // ---- Status bar: character name, turns and fatigue in one row on top of the screen ----
+
+  private def viewStatusBar(character: Character, config: GameConfig): Html[Msg] =
+    val fatigueMax = config.play.fatigue.max
+    val fatiguePct =
+      math.min(100, math.round(character.fatigue * 100.0 / math.max(1, fatigueMax)).toInt)
+    div(
+      cls := "flex w-full max-w-sm items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2"
+    )(
+      div(cls := "flex min-w-0 items-baseline gap-2")(
+        span(cls := "truncate text-sm font-semibold text-gray-700")(text(character.name)),
+        span(cls := "text-xs font-medium tabular-nums text-gray-500")(
+          text(turnWord(character.turn))
+        )
+      ),
+      div(cls := "h-6 w-px shrink-0 bg-gray-200")(),
+      div(cls := "flex min-w-0 flex-1 flex-col gap-1")(
+        div(cls := "flex items-baseline justify-between gap-2")(
+          span(cls := "text-xs font-medium uppercase tracking-wide text-gray-500")(text("Fatigue")),
+          div(cls := "flex items-baseline gap-1")(
+            span(cls := "text-xl font-semibold tabular-nums")(text(character.fatigue.toString)),
+            span(cls := "text-xs text-gray-500")(text(s"/ $fatigueMax"))
+          )
+        ),
+        div(cls := "h-2 overflow-hidden rounded-full bg-gray-200")(
+          div(
+            cls := "h-2 rounded-full bg-orange-400",
+            attribute("style", s"width: $fatiguePct%")
+          )()
+        )
+      )
+    )
+
+  private def hudToggle(pane: HudPane, label: String, open: Set[HudPane]): Html[Msg] =
+    Button.apply(
+      label,
+      Msg.ToggleHud(pane),
+      if open.contains(pane) then Button.Variant.Primary else Button.Variant.Secondary,
+      Button.Size.Small,
+      "w-full truncate"
+    )
+
   private def viewHud(model: Model, character: Character): Html[Msg] =
     val config = model.config
     val built  = config.building.buildables.keys
       .filter(Building.isBuilt(character, _))
       .toList
-    div(cls := "w-48 shrink-0 flex flex-col gap-3")(
-      hudCard("Turns")(
-        div(cls := "text-2xl font-semibold tabular-nums")(text(character.turn.toString))
+    div(cls := "flex w-full flex-col gap-3 md:w-48 md:shrink-0")(
+      div(cls := "grid grid-cols-3 gap-2 md:grid-cols-1")(
+        hudToggle(HudPane.Inventory, "Inventory", model.hudOpen),
+        hudToggle(HudPane.Equipment, "Equipment", model.hudOpen),
+        hudToggle(HudPane.Workstations, "Workstations", model.hudOpen)
       ),
-      hudCard("Fatigue")(
-        div(cls := "flex items-baseline gap-1")(
-          div(cls := "text-2xl font-semibold tabular-nums")(text(character.fatigue.toString)),
-          div(cls := "text-sm text-gray-500")(text(s"/ ${config.play.fatigue.max}"))
-        ),
-        div(cls := "bg-gray-200 rounded h-2 overflow-hidden")(
-          div(
-            cls := "bg-orange-400 h-2 rounded",
-            attribute(
-              "style",
-              s"width: ${math.min(100, math.round(character.fatigue * 100.0 / math.max(1, config.play.fatigue.max)).toInt)}%"
-            )
-          )()
-        )
-      ),
-      hudCard("Inventory")(
-        if character.inventory.isEmpty then div(cls := "text-sm text-gray-500")(text("Empty"))
-        else
-          div(cls := "flex flex-col gap-1")(
-            character.inventory.map(stack =>
-              div(cls := "flex justify-between gap-2 text-sm")(
-                div(cls := "truncate")(text(stack.item)),
-                div(cls := "text-gray-500 tabular-nums")(text(stack.count.toString))
-              )
-            )
-          )
-      ),
-      hudCard("Equipment")(
-        if config.equipment.slots.isEmpty then div(cls := "text-sm text-gray-500")(text("None"))
-        else
-          div(cls := "flex flex-col gap-3")(
-            config.equipment.slots.keys.toList.map { slot =>
-              val current = Equipment.equippedItem(character, slot, config.equipment)
-              val swaps   = Equipment
-                .inventoryItemsForSlot(character, slot, config.equipment)
-                .filterNot(current.contains)
-              div(cls := "flex flex-col gap-1")(
-                List[Html[Msg]](
-                  div(cls := "text-xs text-gray-500")(text(slot)),
-                  div(cls := "text-sm font-medium truncate")(text(current.getOrElse("Empty")))
-                ) ++ swaps.map(item =>
-                  Button.secondary(s"Equip $item", Msg.Equip(item), Button.Size.Small)
+      if model.hudOpen.contains(HudPane.Inventory) then
+        hudCard("Inventory")(
+          if character.inventory.isEmpty then div(cls := "text-sm text-gray-500")(text("Empty"))
+          else
+            div(cls := "flex flex-col gap-1")(
+              character.inventory.map(stack =>
+                div(cls := "flex justify-between gap-2 text-sm")(
+                  div(cls := "truncate")(text(stack.item)),
+                  div(cls := "text-gray-500 tabular-nums")(text(stack.count.toString))
                 )
               )
-            }
-          )
-      ),
-      hudCard("Workstations")(
-        if built.isEmpty then div(cls := "text-sm text-gray-500")(text("None"))
-        else
-          div(cls := "flex flex-col gap-1")(
-            built.map(name => div(cls := "text-sm truncate")(text(name)))
-          )
-      )
+            )
+        )
+      else div()(),
+      if model.hudOpen.contains(HudPane.Equipment) then
+        hudCard("Equipment")(
+          if config.equipment.slots.isEmpty then div(cls := "text-sm text-gray-500")(text("None"))
+          else
+            div(cls := "flex flex-col gap-3")(
+              config.equipment.slots.keys.toList.map { slot =>
+                val current = Equipment.equippedItem(character, slot, config.equipment)
+                val swaps   = Equipment
+                  .inventoryItemsForSlot(character, slot, config.equipment)
+                  .filterNot(current.contains)
+                div(cls := "flex flex-col gap-1")(
+                  List[Html[Msg]](
+                    div(cls := "text-xs text-gray-500")(text(slot)),
+                    div(cls := "text-sm font-medium truncate")(text(current.getOrElse("Empty")))
+                  ) ++ swaps.map(item =>
+                    Button.secondary(s"Equip $item", Msg.Equip(item), Button.Size.Small)
+                  )
+                )
+              }
+            )
+        )
+      else div()(),
+      if model.hudOpen.contains(HudPane.Workstations) then
+        hudCard("Workstations")(
+          if built.isEmpty then div(cls := "text-sm text-gray-500")(text("None"))
+          else
+            div(cls := "flex flex-col gap-1")(
+              built.map(name => div(cls := "text-sm truncate")(text(name)))
+            )
+        )
+      else div()()
     )

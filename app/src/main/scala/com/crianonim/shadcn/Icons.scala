@@ -29,6 +29,7 @@ object Icons {
   def x[A](c: String = "h-4 w-4"): Html[A]            = base(c)(path(d := "M18 6 6 18"), path(d := "m6 6 12 12"))
   def arrowLeft[A](c: String = "h-4 w-4"): Html[A]    = base(c)(path(d := "m12 19-7-7 7-7"), path(d := "M19 12H5"))
   def arrowRight[A](c: String = "h-4 w-4"): Html[A]   = base(c)(path(d := "M5 12h14"), path(d := "m12 5 7 7-7 7"))
+  def arrowDown[A](c: String = "h-4 w-4"): Html[A]    = base(c)(path(d := "M12 5v14"), path(d := "m19 12-7 7-7-7"))
   def search[A](c: String = "h-4 w-4"): Html[A] =
     base(c)(circle(cx := "11", cy := "11", r := "8"), path(d := "m21 21-4.3-4.3"))
   def star[A](c: String = "h-4 w-4"): Html[A] =
