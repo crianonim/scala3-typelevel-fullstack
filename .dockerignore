@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/.parcel-cache
+**/.vscode
+app/target
+common/target
+project/target
+*.class
+.idea

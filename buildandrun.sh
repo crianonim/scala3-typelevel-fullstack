@@ -6,6 +6,7 @@ rm -rf .parcel-cache
 rm dist/*
 npm install
 npm run build-prod
+rm -f dist/*.map
 cd ..
 
 sbt "server / assembly"
