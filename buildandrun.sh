@@ -12,5 +12,10 @@ cd ..
 sbt "server / assembly"
 docker build  --no-cache . -t scalafullstack
 
-docker run -d -p 8080:8080 scalafullstack
+if [ -f .env.local ]; then
+  docker run -d -p 8080:8080 --env-file .env.local scalafullstack
+else
+  echo "No .env.local found; starting with the bundled local-db defaults."
+  docker run -d -p 8080:8080 scalafullstack
+fi
 

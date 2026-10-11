@@ -445,8 +445,13 @@ Drizzle/Prisma CLIs and most ORMs:
 | `PGCHANNELBINDING`  | no       | driver default | Appended as `channelBinding=`. Neon and other SCRAM-based providers want `require`. |
 
 The file format is plain `.env`: `KEY=value`, `#` comment lines, and optional single or double quotes
-around the value (which is how the Neon connection string arrives). Note that `DbConfig.parseEnvFile`
-deliberately does **not** strip inline `#` comments, so a password containing `#` survives.
+ around the value (which is how the Neon connection string arrives). Note that `DbConfig.parseEnvFile`
+ deliberately does **not** strip inline `#` comments, so a password containing `#` survives.
+
+**One exception:** when the same file is fed to the app through Docker (`docker run --env-file
+.env.local`, or `./deploy-pi.sh`, which ships it to the Pi as `~/.scalafullstack.env`), keep the
+values **unquoted** — Docker's `--env-file` parser does not strip quotes. The app itself accepts
+both, so one unquoted `.env.local` works everywhere.
 
 `DbConfig` is a plain case class, and its `toString` is overridden to omit the password, so a stray
 `println(cfg)` in a log statement cannot leak it. What you *will* see logged is a safe summary:
@@ -877,6 +882,29 @@ This is the fastest way to confirm your configuration without starting the HTTP 
                             ▼
                      TablesApp (Scala.js) ── circe decode ──▶ rendered rows
 ```
+
+---
+
+### 8.5 Passing the credentials to a container (Docker / Raspberry Pi)
+
+Secrets are **never baked into the image** — the Dockerfile copies only the fat jar and the frontend
+bundle. The container receives the postgres variables at runtime from your local `.env.local`:
+
+- **Locally in Docker** (`buildandrun.sh`): the container is started with
+  `docker run --env-file .env.local …`. If the file is missing, it runs against the bundled
+  `localhost:5444` defaults instead.
+- **Raspberry Pi** (`deploy-pi.sh`): the script `scp`s `.env.local` to the Pi as
+  `~/.scalafullstack.env` and starts the container with `--env-file ~/.scalafullstack.env`. The file
+  persists on the Pi between deploys, so re-running the script — or editing the file on the Pi — is
+  all it takes to rotate credentials.
+
+That works because `DbConfig` treats the process environment as its highest-precedence source
+(section 8.1), and `docker run --env-file` injects exactly those variables. Because of this, keep the
+values **unquoted** in `.env.local`.
+
+A side effect to be aware of: environment variables passed this way are visible in
+`docker inspect <container>`. That is fine for a home-lab Pi; if you ever need them hidden from the
+image/daemon inspection, move to Docker Swarm **secrets** or Compose `secrets`.
 
 ---
 

@@ -12,6 +12,10 @@ set -e
 
 PI_HOST="${1:-crianonim@raspberry5.local}"
 IMAGE="scalafullstack"
+ENV_FILE=".env.local"
+# Path on the Pi where the postgres credentials (if any) are kept between deploys.
+# "~" is resolved by the remote shell / scp to the Pi user's home (e.g. /home/crianonim).
+REMOTE_ENV="~/.scalafullstack.env"
 # Pi 3/4/5 on 64-bit OS = linux/arm64. Older / 32-bit Pi = linux/arm/v7.
 PLATFORM="${PLATFORM:-linux/arm64}"
 
@@ -46,6 +50,19 @@ docker buildx build --platform "${PLATFORM}" --load -t "${IMAGE}" .
 
 echo "==> Shipping image to ${PI_HOST} and (re)starting container"
 docker save "${IMAGE}" | ssh "${PI_HOST}" "docker load"
-ssh "${PI_HOST}" "docker rm -f ${IMAGE} 2>/dev/null; docker run -d --name ${IMAGE} -p 8080:8080 ${IMAGE}"
+
+# Ship the postgres credentials (if any) so the container can reach the database.
+# The file on the Pi is persistent: editing it there, or re-running this script, rotates secrets.
+if [ -f "${ENV_FILE}" ]; then
+  echo "==> Shipping ${ENV_FILE} to ${PI_HOST}:${REMOTE_ENV}"
+  scp "${ENV_FILE}" "${PI_HOST}:${REMOTE_ENV}"
+  RUN_ENV="--env-file ${REMOTE_ENV}"
+else
+  echo "==> No ${ENV_FILE} found locally; container will use the bundled local-db defaults"
+  RUN_ENV=""
+fi
+
+# shellcheck disable=SC2086 # RUN_ENV is either "--env-file <path>" or intentionally empty.
+ssh "${PI_HOST}" "docker rm -f ${IMAGE} 2>/dev/null; docker run -d --name ${IMAGE} -p 8080:8080 ${RUN_ENV} ${IMAGE}"
 
 echo "==> Done. Server should be reachable at http://${PI_HOST}:8080/tables"
