@@ -277,12 +277,15 @@ case class YieldConfig(min: Int, max: Int):
 object YieldConfig:
   given Decoder[YieldConfig] = deriveDecoder
 
-/** One thing a glade holds. Tiring marks the resources that do the working on the character:
-  * chopping an ash tree is an effort, while picking berries or a fallen stick is not.
+/** One thing a glade holds. `power` is the forestry tool power it takes to work it — the wood
+  * ladder (ash, birch, oak) climbs it, while sticks, berries and mushrooms sit at 0 and need no
+  * tool. It doubles as the tier the fatigue-chance multiplier uses, exactly like a mining
+  * material's power. Tiring marks the resources that do the working on the character: chopping a
+  * tree is an effort, while picking berries or a fallen stick is not.
   */
-case class ForestResourceConfig(tier: Int, turns: Int, `yield`: YieldConfig, tiring: Boolean):
+case class ForestResourceConfig(power: Int, turns: Int, `yield`: YieldConfig, tiring: Boolean):
   def issues(path: String): List[Issue] =
-    atLeast(s"$path.tier", tier, 0) ++
+    atLeast(s"$path.power", power, 0) ++
       atLeast(s"$path.turns", turns, 1) ++
       `yield`.issues(s"$path.yield")
 

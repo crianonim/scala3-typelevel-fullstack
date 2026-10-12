@@ -75,21 +75,21 @@ class ForestTest extends CatsEffectSuite:
 
   test("depth schedule"):
     assert(Gather.forall(item => debut(item) == Some(1)), Gather.map(debut).mkString(","))
-    assertEquals(debut("ash tree"), Some(5))
+    assertEquals(debut("ash logs"), Some(5))
     assertEquals(debut("mushrooms"), Some(10))
-    assert((1 to 4).forall(depth => !resourcesAt(depth).contains("ash tree")))
+    assert((1 to 4).forall(depth => !resourcesAt(depth).contains("ash logs")))
     assert(
       (1 to 4).forall(depth => resourcesAt(depth).forall(Gather.contains))
     )
 
     val missing = (1 to Deep).toList.flatMap { depth =>
       resourcesAt(depth)
-        .filterNot(Forest.canHarvest(_, config))
+        .filterNot(config.forest.resources.contains)
         .map(item => s"$depth:$item")
     }
     assertEquals(missing, Nil)
 
-    assertEquals(Schedule.weightsAtLevel(Deep, schedule).keys.size, 4)
+    assertEquals(Schedule.weightsAtLevel(Deep, schedule).keys.size, 6)
 
   test("glades"):
     withRandom { implicit r =>
@@ -156,7 +156,7 @@ class ForestTest extends CatsEffectSuite:
     assert(behind.min >= forest.yieldFactor.min, s"was ${behind.min}")
     assert(behind.max >= behind.min)
 
-    val tree = rangeOf("ash tree", at(depth = 5))
+    val tree = rangeOf("ash logs", at(depth = 5))
     assertEquals(tree.min, 2)
     assertEquals(tree.max, 10)
 
@@ -172,19 +172,74 @@ class ForestTest extends CatsEffectSuite:
 
   test("turns and fatigue"):
     assertEquals(turnsOf("sticks"), forest.resources("sticks").turns)
-    assertEquals(turnsOf("ash tree"), forest.resources("ash tree").turns)
+    assertEquals(turnsOf("ash logs"), forest.resources("ash logs").turns)
     // Turns have no character in their signature at all, so Forestry can never price them.
 
-    val even  = round3(chanceOf("ash tree", at(depth = 20, level = 20)))
+    val even  = round3(chanceOf("ash logs", at(depth = 20, level = 20)))
     val ahead =
-      round3(chanceOf("ash tree", at(depth = 20, level = 20 + 5 * forest.depthFactor.max)))
-    val behind = round3(chanceOf("ash tree", at(depth = 20, level = 10)))
+      round3(chanceOf("ash logs", at(depth = 20, level = 20 + 5 * forest.depthFactor.max)))
+    val behind = round3(chanceOf("ash logs", at(depth = 20, level = 10)))
     assert(ahead < even, s"$ahead < $even")
     assert(behind > even, s"$behind > $even")
     assert(List(even, ahead, behind).forall(c => c >= 0 && c <= 1))
 
-    val tiered = round3(chanceOf("mushrooms", at(depth = 20, level = 20)))
-    assert(tiered > even, s"$tiered > $even")
+    // The power ladder is also the wearing ladder: harder wood tires more, and the
+    // multiplier grows with its tier. Read at an over-leveled depth (base 0.2, nothing
+    // clamped to 1) so the ordering shows through.
+    val hardAt = (item: String) =>
+      round3(chanceOf(item, at(depth = 20, level = 20 + 5 * forest.depthFactor.max)))
+    val ashC   = hardAt("ash logs")
+    val birchC = hardAt("birch logs")
+    val oakC   = hardAt("oak logs")
+    assert(oakC > birchC, s"$oakC > $birchC")
+    assert(birchC > ashC, s"$birchC > $ashC")
+    assert(List(ashC, birchC, oakC).forall(c => c >= 0 && c <= 1))
+
+  test("wood is gated by the axe in hand"):
+    val axe = config.equipment.slots(Character.ForestryToolSlot)
+    assertEquals(axe("stone axe"), 1)
+    assertEquals(axe("copper axe"), 2)
+    assertEquals(axe("bronze axe"), 3)
+
+    def wield(tool: String): Character =
+      fresh().copy(equipment =
+        Map(Character.MiningToolSlot -> "stone pickaxe", Character.ForestryToolSlot -> tool)
+      )
+
+    // The fresh character starts with the stone axe equipped and nothing else.
+    assertEquals(Forest.forestryPower(fresh(), config.equipment), 1)
+    assertEquals(Forest.forestryPower(wield("bronze axe"), config.equipment), 3)
+    assertEquals(
+      Forest.forestryPower(fresh().copy(equipment = Map.empty), config.equipment),
+      0
+    )
+
+    val mixed =
+      glade(
+        List(
+          ItemStack("ash logs", 1),
+          ItemStack("birch logs", 1),
+          ItemStack("oak logs", 1),
+          ItemStack("sticks", 1)
+        )
+      )
+    assert(Forest.canHarvest("ash logs", mixed, config))
+    assert(Forest.canHarvest("sticks", mixed, config))
+    assert(!Forest.canHarvest("birch logs", mixed, config))
+    assert(!Forest.canHarvest("oak logs", mixed, config))
+    assertEquals(Forest.requiredPower("birch logs", config), Some(2))
+    assertEquals(Forest.requiredPower("coal", config), None)
+
+    val birchReady = glade(List(ItemStack("birch logs", 1))).copy(equipment =
+      Map(Character.MiningToolSlot -> "stone pickaxe", Character.ForestryToolSlot -> "copper axe")
+    )
+    assert(Forest.canHarvest("birch logs", birchReady, config))
+
+    // The action itself refuses wood the axe cannot chop, mirroring the mine's power check.
+    Forest.harvestNodeWith(mixed, "oak logs", config, rolls()) match
+      case Right(_) => fail("oak was harvested without a bronze axe")
+      case Left(error) =>
+        assert(error.message.contains("needs forestry power 3"), error.message)
 
   test("gathering"):
     val character = glade(List(ItemStack("sticks", 1), ItemStack("berries", 1)))
@@ -210,19 +265,19 @@ class ForestTest extends CatsEffectSuite:
     assert(!tired.character.hasForestPath)
 
   test("chopping"):
-    val oneTree = glade(List(ItemStack("ash tree", 1)), depth = 5)
+    val oneTree = glade(List(ItemStack("ash logs", 1)), depth = 5)
 
     // Roll 1 against fatigue at the cap: the effort check cannot pass.
     val blocked = gather(
       oneTree.copy(fatigue = config.play.fatigue.max),
-      "ash tree",
+      "ash logs",
       rolls(fatigueCheck = 1)
     )
     assert(blocked.failed)
-    assertEquals(blocked.character.turn, forest.resources("ash tree").turns)
+    assertEquals(blocked.character.turn, forest.resources("ash logs").turns)
     assertEquals(blocked.amount, 0)
     assertEquals(blocked.character.skills.forestry.xp, 0)
-    assertEquals(Schedule.nodeCount(blocked.character.forestNodes, "ash tree"), 1)
+    assertEquals(Schedule.nodeCount(blocked.character.forestNodes, "ash logs"), 1)
     assert(!blocked.foundPath)
     assert(!blocked.gladeCleared)
 
@@ -230,25 +285,25 @@ class ForestTest extends CatsEffectSuite:
     // threshold of 0.
     val landed = gather(
       oneTree,
-      "ash tree",
+      "ash logs",
       rolls(fatigueCheck = 51, yielding = 0.99, path = 0.99, tiring = 0.99)
     )
     assert(!landed.failed)
     assert(landed.gladeCleared)
     assert(landed.foundPath)
-    assertEquals(Schedule.nodeCount(landed.character.forestNodes, "ash tree"), 0)
+    assertEquals(Schedule.nodeCount(landed.character.forestNodes, "ash logs"), 0)
 
     val tired = gather(
       oneTree,
-      "ash tree",
+      "ash logs",
       rolls(fatigueCheck = 51, yielding = 0.0, path = 0.0, tiring = 0.0)
     )
     assertEquals(tired.fatigue, forest.chop.fatigue)
     assertEquals(tired.character.fatigue, forest.chop.fatigue)
 
     val notFound = gather(
-      glade(List(ItemStack("ash tree", 2)), depth = 5),
-      "ash tree",
+      glade(List(ItemStack("ash logs", 2)), depth = 5),
+      "ash logs",
       rolls(fatigueCheck = 51, yielding = 0.99, path = 0.99, tiring = 0.99)
     )
     assert(!notFound.foundPath)

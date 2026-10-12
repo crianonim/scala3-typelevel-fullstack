@@ -21,7 +21,7 @@ class GameConfigTest extends FunSuite:
     assertEquals(config.equipment.slots("Forestry Tool")("stone axe"), 1)
     assertEquals(config.building.buildables("Furnace").turns, 50)
     assertEquals(config.forest.glade.min, 10)
-    assertEquals(config.forest.resources("ash tree").tier, 1)
+    assertEquals(config.forest.resources("ash logs").power, 1)
     assertEquals(config.forest.chop.fatigue, 1)
 
   test("material power looks up a material and misses an unknown one"):
@@ -72,7 +72,7 @@ class GameConfigTest extends FunSuite:
         config.forest.copy(resources =
           config.forest.resources.updated(
             "bamboo",
-            ForestResourceConfig(tier = 0, turns = 1, `yield` = YieldConfig(1, 2), tiring = false)
+            ForestResourceConfig(power = 0, turns = 1, `yield` = YieldConfig(1, 2), tiring = false)
           )
         )
       )

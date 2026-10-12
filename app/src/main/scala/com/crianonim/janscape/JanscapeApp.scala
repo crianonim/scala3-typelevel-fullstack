@@ -896,31 +896,46 @@ object JanscapeApp:
 
   private def viewForestFloor(model: Model, character: Character): Html[Msg] =
     val config      = model.config
+    val power       = Forest.forestryPower(character, config.equipment)
     val depthFactor = Forest.forestDepthFactor(character, config.forest)
     val path        = config.forest.path
     val restTurns   = config.play.rest.turns
+    val locked      = distinctNodes(character.forestNodes)
+      .map((item, _) => item)
+      .filterNot(Forest.canHarvest(_, character, config))
+      .map(item => item -> Forest.requiredPower(item, config).getOrElse(0))
     val nodes =
       distinctNodes(character.forestNodes).map { (item, count) =>
-        val tiring  = config.forest.resources.get(item).exists(_.tiring)
-        val turns   = Forest.turnsFor(item, config).getOrElse(0)
-        val range   = Forest.yieldRange(item, character, config).getOrElse(YieldRange(0, 0))
-        val fatigue =
-          if tiring then
-            math
-              .round(Forest.fatigueChanceFor(item, character, config).getOrElse(0.0) * 100)
-              .toInt
-          else 0
-        val worn = if tiring then s" · $fatigue% fat" else ""
-        Button(
-          s"$item ($count) · ${turns}t · ${range.min}-${range.max}$worn",
-          Msg.Harvest(item),
-          Button.Variant.Primary,
-          Button.Size.Small,
-          "w-full"
-        )
+        if Forest.canHarvest(item, character, config) then
+          val tiring  = config.forest.resources.get(item).exists(_.tiring)
+          val turns   = Forest.turnsFor(item, config).getOrElse(0)
+          val range   = Forest.yieldRange(item, character, config).getOrElse(YieldRange(0, 0))
+          val fatigue =
+            if tiring then
+              math
+                .round(Forest.fatigueChanceFor(item, character, config).getOrElse(0.0) * 100)
+                .toInt
+            else 0
+          val worn = if tiring then s" · $fatigue% fat" else ""
+          Button(
+            s"$item ($count) · ${turns}t · ${range.min}-${range.max}$worn",
+            Msg.Harvest(item),
+            Button.Variant.Primary,
+            Button.Size.Small,
+            "w-full"
+          )
+        else
+          val required = Forest.requiredPower(item, config).getOrElse(0)
+          Button(
+            s"$item ($count) · needs power $required",
+            Msg.Harvest(item),
+            Button.Variant.Disabled,
+            Button.Size.Small,
+            "w-full"
+          )
       }
     cardWithLeave(
-      s"Forest ${character.forestLevel}, DF ${factorLabel(depthFactor)}",
+      s"Forest ${character.forestLevel}, Power $power, DF ${factorLabel(depthFactor)}",
       "",
       "Leave Forest"
     )(
@@ -948,6 +963,12 @@ object JanscapeApp:
             !Forest.canGoDeeper(character)
           )
         ),
+        if locked.nonEmpty then
+          hint(
+            s"This glade cannot be cleared until you equip an axe that can work " +
+              locked.map((item, power) => s"$item (forestry power $power)").mkString(", ") + "."
+          )
+        else div()(),
         banner(model),
         note(model),
         hint(

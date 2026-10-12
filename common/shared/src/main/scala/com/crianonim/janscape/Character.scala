@@ -109,7 +109,13 @@ object Character:
     */
   val MiningToolSlot = "Mining Tool"
 
-  val StartingEquipment: Map[String, String] = Map(MiningToolSlot -> "stone pickaxe")
+  /** The slot whose equipped axe grants forestry power, the mirror of [[MiningToolSlot]]. The
+    * forest never reads it before this file says which slot that is.
+    */
+  val ForestryToolSlot = "Forestry Tool"
+
+  val StartingEquipment: Map[String, String] =
+    Map(MiningToolSlot -> "stone pickaxe", ForestryToolSlot -> "stone axe")
 
   /** Save-format guard only, deliberately far above any real cap: its job is rejecting nonsense
     * from a hand-edited save, not describing how tired a character may get. The gameplay cap is

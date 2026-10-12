@@ -6,11 +6,12 @@ import cats.syntax.all.*
 
 /** The forest is the mine with the mining taken out. A glade is rolled from the same depth
   * schedule, a path is the ladder, and going deeper is descending. What changes is what a node
-  * costs: nothing is gated on power, a gather is not an effort at all, and only a tree tires you.
+  * costs: only wood is gated on power (chopping a tree is work a tool has to be good enough for),
+  * anything else is gathered bare-handed, and only a tree tires you.
   *
-  * Nothing here reads a tool. Forestry has no equipment of its own, so a character with an empty
-  * inventory can still work a glade, which is what makes the forest a place to go before the mine
-  * pays for itself.
+  * Reading the Forestry Tool slot keeps the two skills honest: the stone axe the character starts
+  * with covers the ash, the copper axe the birch, and the bronze axe the oak. Power never comes
+  * from the Forestry skill, so a glade's wood is gated exactly as hard as the axe in the hand.
   */
 
 /** How a gather ended.
@@ -79,12 +80,27 @@ object Forest:
     val factor = (gap / forest.depthFactor.levelsPerPoint).toInt
     math.min(forest.depthFactor.max, math.max(-forest.depthFactor.max, factor))
 
-  /** Whether a resource the character can work. Everything in a glade is workable, since nothing in
-    * the forest is gated on power; this exists so the view and the action agree, and so a
-    * hand-edited save naming something the schedule does not produce fails loudly.
+  /** The forestry power the equipped axe grants. Read from the config rather than stored on the
+    * save, so swapping a tool changes what wood can be chopped immediately. An empty slot, or one
+    * holding something it does not accept, grants none.
     */
-  def canHarvest(item: String, config: GameConfig): Boolean =
-    config.forest.resources.contains(item)
+  def forestryPower(character: Character, equipment: EquipmentConfig): Int =
+    Equipment
+      .equippedItem(character, Character.ForestryToolSlot, equipment)
+      .flatMap(tool => equipment.slots.get(Character.ForestryToolSlot).flatMap(_.get(tool)))
+      .getOrElse(0)
+
+  /** The power a resource takes to work, or nothing when the forest does not produce it. */
+  def requiredPower(item: String, config: GameConfig): Option[Int] =
+    config.forest.resources.get(item).map(_.power)
+
+  /** Whether the character can work a resource on a glade. A resource the schedule does not
+    * configure is never workable, what their tier of wood demands, so a hand-edited save naming
+    * something the schedule does not produce fails loudly and an under-tooled axe reads as locked
+    * exactly like the mine's deep ores.
+    */
+  def canHarvest(item: String, character: Character, config: GameConfig): Boolean =
+    requiredPower(item, config).exists(_ <= forestryPower(character, config.equipment))
 
   /** The turns one gather or chop costs, which comes from the resource and never from Forestry.
     * Working a glade well means being able to reach the deeper parts of it, not being quicker than
@@ -108,9 +124,9 @@ object Forest:
     resourceFor(item, config).map(yieldRangeOf(_, character, config.forest))
 
   /** The chance a landed gather tires the character, resource included. The depth factor sets a
-    * base chance and the tier layers a multiplier on top, so a deeper resource is more wearing: the
-    * multiplier is floored so the factor can never drive it negative, and the result is clamped to
-    * the 0-1 range a chance needs.
+    * base chance and the resource's power layers a multiplier on top, so harder wood is more
+    * wearing: the multiplier is floored so the factor can never drive it negative, and the result
+    * is clamped to the 0-1 range a chance needs.
     */
   def fatigueChanceFor(
       item: String,
@@ -186,10 +202,10 @@ object Forest:
     * for it spends the turns and gets nothing — no yield, no XP, and no roll for the path, so bad
     * luck costs time without spiralling into a dead end.
     *
-    * The two validation failures are the TypeScript original's throws, returned as errors: an item
-    * the forest cannot produce (which describes a glade that could not have been rolled) and a node
-    * no longer on the glade (which the UI cannot produce, since its buttons come from the same
-    * glade).
+    * The validation failures are the TypeScript original's throws, returned as errors: an item
+    * the forest cannot produce (which describes a glade that could not have been rolled), a node
+    * no longer on the glade, or a wood the axe in hand cannot chop (which the UI cannot produce,
+    * since its buttons come from the same glade).
     */
   def harvestNode[F[_]: Monad](character: Character, item: String, config: GameConfig)(using
       random: Random[F]
@@ -303,6 +319,14 @@ object Forest:
         Left(
           GameError.InvalidAction(s"No $item left on forest depth ${character.forestLevel}")
         )
+      else if !canHarvest(item, character, config) then
+        val required = resource.power
+        Left(
+          GameError.InvalidAction(
+            s"$item needs forestry power $required, but ${character.name} has " +
+              s"${forestryPower(character, config.equipment)}"
+          )
+        )
       else Right(resource)
     }
 
@@ -335,5 +359,5 @@ object Forest:
         character,
         forest
       )) *
-        math.max(fatigueChance.minFactor, 1 + fatigueChance.perTier * resource.tier)
+        math.max(fatigueChance.minFactor, 1 + fatigueChance.perTier * resource.power)
     math.min(1, math.max(0, chance))

@@ -44,7 +44,10 @@ class PowerTest extends CatsEffectSuite:
       .parse(GameConfigJson.raw)
       .fold(e => fail(s"embedded config is not JSON: ${e.message}"), identity)
 
-  /** The shipped config, with the Mining Tool slot rewritten to hold every synthetic tool. */
+  /** The shipped config, with the Mining Tool slot rewritten to hold every synthetic tool while the
+    * rest of the slots (including the Forestry Tool slot the starting loadout names) stay as
+    * shipped.
+    */
   private lazy val config: GameConfig =
     val tools = Json.fromJsonObject(
       JsonObject.fromIterable(Tools.map { case (power, tool) => tool -> Json.fromInt(power) })
@@ -60,9 +63,18 @@ class PowerTest extends CatsEffectSuite:
 
   private def withEquipment(slots: Json): Json =
     val object_ = raw.asObject.getOrElse(fail("embedded config is not an object"))
-    Json.fromJsonObject(
-      object_.add("equipment", Json.obj("slots" -> slots))
-    )
+    val shippedSlots = object_
+      .apply("equipment")
+      .flatMap(_.asObject)
+      .flatMap(_("slots"))
+      .flatMap(_.asObject)
+      .getOrElse(fail("embedded config has no equipment.slots"))
+    // Replace the Mining Tool slot outright (so a test can empty it) but keep every other slot,
+    // because the starting loadout now names the Forestry Tool slot too.
+    val mine  = slots.asObject.getOrElse(fail("slots must be an object"))
+    val merged =
+      JsonObject.fromIterable(shippedSlots.remove(Character.MiningToolSlot).toList ++ mine.toList)
+    Json.fromJsonObject(object_.add("equipment", Json.obj("slots" -> Json.fromJsonObject(merged))))
 
   private def withMiningBands(update: List[Json] => List[Json]): Json =
     val materialsJson = raw.hcursor

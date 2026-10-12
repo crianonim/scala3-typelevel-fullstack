@@ -170,39 +170,51 @@
           "to": { "sticks": 40, "berries": 28 }
         },
         {
-          "from": { "sticks": 40, "berries": 28, "ash tree": 6 },
-          "to": { "sticks": 34, "berries": 24, "ash tree": 22 }
+          "from": { "sticks": 40, "berries": 22, "ash logs": 6 },
+          "to": { "sticks": 34, "berries": 20, "ash logs": 22 }
         },
         {
-          "from": { "sticks": 34, "berries": 24, "ash tree": 22, "mushrooms": 6 },
-          "to": { "sticks": 30, "berries": 22, "ash tree": 18, "mushrooms": 20 }
+          "from": { "sticks": 32, "berries": 18, "ash logs": 22, "birch logs": 6, "mushrooms": 6 },
+          "to": { "sticks": 28, "berries": 16, "ash logs": 14, "birch logs": 26, "mushrooms": 6 }
         },
         {
-          "from": { "sticks": 30, "berries": 22, "ash tree": 18, "mushrooms": 20 }
+          "from": { "sticks": 26, "berries": 14, "ash logs": 10, "birch logs": 18, "mushrooms": 6, "oak logs": 26 }
         }
       ]
     },
     "resources": {
       "sticks": {
-        "tier": 0,
+        "power": 0,
         "turns": 1,
         "yield": { "min": 2, "max": 4 },
         "tiring": false
       },
       "berries": {
-        "tier": 0,
+        "power": 0,
         "turns": 1,
         "yield": { "min": 2, "max": 4 },
         "tiring": false
       },
-      "ash tree": {
-        "tier": 1,
+      "ash logs": {
+        "power": 1,
         "turns": 4,
         "yield": { "min": 2, "max": 10 },
         "tiring": true
       },
+      "birch logs": {
+        "power": 2,
+        "turns": 5,
+        "yield": { "min": 2, "max": 10 },
+        "tiring": true
+      },
+      "oak logs": {
+        "power": 3,
+        "turns": 6,
+        "yield": { "min": 2, "max": 10 },
+        "tiring": true
+      },
       "mushrooms": {
-        "tier": 2,
+        "power": 0,
         "turns": 2,
         "yield": { "min": 2, "max": 4 },
         "tiring": false

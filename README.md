@@ -401,21 +401,26 @@ it has glade resources with yields, and the ladder is replaced by the path. It c
   arrival, exactly like mine nodes.
 - **`forest.schedule.bandLevels` / `minShare` / `bands[]`** `[5 / 0.05 / 4 bands]` — the same
   schedule shape as mining, with weights across the glade's resources. The shipped four bands walk
-  sticks → berries → ash trees → mushrooms, with the ash tree debuting exactly at depth 5 (the first
-  fast-travel milestone).
-- **`forest.resources.<item>.tier`** `[sticks 0, berries 0, ash tree 1, mushrooms 2]` — feeds only
-  the fatigue multiplier below. Unlike the mine there is **no gear gate**: `canHarvest` only checks
-  the resource is configured, so tier never locks a resource.
+  sticks → berries → ash logs → birch logs → oak logs, debuting the wood ladder exactly at the
+  fast-travel milestones: ash at depth 5, birch at 10, oak at 15 (mushrooms re-appear as a
+  tool-free oddity from depth 10).
+- **`forest.resources.<item>.power`** `[sticks 0, berries 0, ash logs 1, birch logs 2, oak logs 3,
+  mushrooms 0]` — the forestry tool power the resource takes to work — the mirror of a mining
+  material's power. Only **wood** is gated: `canHarvest` (now checked against the equipped axe, like
+  `canMine`) locks a tree until the axe in hand reaches its power. The stone axe the character
+  starts with covers ash, the copper axe birch, and the bronze axe oak; sticks, berries and
+  mushrooms sit at 0 and are gathered bare-handed. It doubles as the wearing tier the fatigue
+  multiplier uses, so harder wood both requires a better axe and tires more.
 - **`forest.resources.<item>.turns`** — turns per gather. The Forestry XP earned equals the turns
   spent, so a slow tree is also a better teacher.
-- **`forest.resources.<item>.yield.min` / `max`** `[2-4, 2-4, 2-10, 2-4]` — the range a gather
-  brings back. Zero is allowed (a resource that can come up empty is a real outcome — unlike a node
-  count, which cannot); the range is shifted by the depth factor (see `yieldFactor`) and `max >=
-  min` is enforced.
-- **`forest.resources.<item>.tiring`** `[sticks false, berries false, ash tree true, mushrooms
-  false]` — whether the *resource does the working on the character*: chopping an ash tree is an
-  effort, picking berries or a fallen stick is not. Only a `tiring` gather rolls the fatigue check
-  at all (and the effort check that precedes it).
+- **`forest.resources.<item>.yield.min` / `max`** `[2-4, 2-4, 2-10, 2-10, 2-10, 2-4]` — the range a
+  gather brings back. Zero is allowed (a resource that can come up empty is a real outcome — unlike
+  a node count, which cannot); the range is shifted by the depth factor (see `yieldFactor`) and
+  `max >= min` is enforced.
+- **`forest.resources.<item>.tiring`** `[sticks false, berries false, ash logs true, birch logs
+  true, oak logs true, mushrooms false]` — whether the *resource does the working on the
+  character*: chopping a tree is an effort, picking berries, sticks or mushrooms is not. Only a
+  `tiring` gather rolls the fatigue check at all (and the effort check that precedes it).
 - **`forest.chop.fatigue`** `[1]` — the fatigue added when a tiring gather trips its roll.
 - **`forest.path.chance`** `[0.1]` — probability a *landed* gather turns up the path (the forest's
   ladder). Rolled per gather, only while none is held, and never on a miss or a too-tired-to-attempt
@@ -434,18 +439,19 @@ it has glade resources with yields, and the ladder is replaced by the path. It c
   merely being quicker.
 - **`forest.fatigueChance.base` / `perDepthFactorPoint` / `perTier` / `minFactor`**
   `[0.5 / 0.1 / 0.75 / 0.1]` — the mirror of mining's fatigue chance without the power relief (the
-  forest has no equipment relief, only gear-independent tier): `clamp(base − perPoint·depthFactor,
-  0..1) × clamp(minFactor, 1 + perTier·tier)`, clamped to `0..1`, consulted only for `tiring`
-  resources. At the shipped values an ash tree (tier 1) at depth parity tires 1.75× as often as a
-  stick.
+  forest has no surplus-power lever, only the wear of the wood itself): `clamp(base −
+  perPoint·depthFactor, 0..1) × clamp(minFactor, 1 + perTier·power)`, clamped to `0..1`, consulted
+  only for `tiring` resources. At the shipped values an ash log (power 1) at depth parity tires
+  1.75× as often as a stick, birch 2.5×, and oak 3.25×.
 
 #### What is deliberately *not* in the file
 
 Character creation values and save-format guards live in code: `MaxLevel` (99), `MaxSaveFatigue`
-(1000), `MaxInventoryBytes`, the "Mining Tool" slot name, the starting loadout (stone pickaxe,
-nothing in inventory, no tools for the forest), and both starting depths. Moving any of those into
-the JSON would let a save break the format that validates it, which is exactly the coupling the
-`play.fatigue.max` / `MaxSaveFatigue` split is meant to avoid. The file also cannot express agenda
+(1000), `MaxInventoryBytes`, the "Mining Tool" and "Forestry Tool" slot names — including which
+slots are named. The starting loadout (stone pickaxe and stone axe equipped, an empty inventory)
+and both starting depths also live in code. Moving any of those into the JSON would let a save break
+the format that validates it, which is exactly the coupling the `play.fatigue.max` /
+`MaxSaveFatigue` split is meant to avoid. The file also cannot express agenda
 logic or UI text — those are code's job; this file exists to tune *numbers*, not prose.
 
 ---

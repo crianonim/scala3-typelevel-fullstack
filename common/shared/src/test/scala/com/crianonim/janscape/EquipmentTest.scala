@@ -33,10 +33,11 @@ class EquipmentTest extends CatsEffectSuite:
   test("the starting loadout"):
     val fresh = Character.createCharacter("Tester")
     assertEquals(fresh.equipment.get(Slot), Some("stone pickaxe"))
+    assertEquals(fresh.equipment.get(Axe), Some("stone axe"))
     assertEquals(held(fresh, "stone pickaxe"), 0)
     assertEquals(
       Character.StartingEquipment,
-      Map(Slot -> "stone pickaxe")
+      Map(Slot -> "stone pickaxe", Axe -> "stone axe")
     )
 
   test("the config declares the slots"):
@@ -52,19 +53,23 @@ class EquipmentTest extends CatsEffectSuite:
       equipment.slots(Slot).values.toList,
       equipment.slots(Axe).values.toList
     )
-    assertEquals(Character.createCharacter("Tester").equipment.get(Axe), None)
+    assertEquals(Character.createCharacter("Tester").equipment.get(Axe), Some("stone axe"))
     assertEquals(Equipment.slotFor("copper axe", equipment), Some(Axe))
 
   test("legacy saves gain the loadout"):
     val legacy = Character.parse("""{"name":"Old","skills":{}}""")
     legacy match
       case Left(error) => fail(error.message)
-      case Right(old)  => assertEquals(old.equipment.get(Slot), Some("stone pickaxe"))
+      case Right(old)  =>
+        assertEquals(old.equipment.get(Slot), Some("stone pickaxe"))
+        assertEquals(old.equipment.get(Axe), Some("stone axe"))
 
     val round = Character.parse(Character.encode(Character.createCharacter("X")))
     round match
       case Left(error)   => fail(error.message)
-      case Right(loaded) => assertEquals(loaded.equipment.get(Slot), Some("stone pickaxe"))
+      case Right(loaded) =>
+        assertEquals(loaded.equipment.get(Slot), Some("stone pickaxe"))
+        assertEquals(loaded.equipment.get(Axe), Some("stone axe"))
 
   test("reading equipment"):
     val fresh = Character.createCharacter("Tester")
