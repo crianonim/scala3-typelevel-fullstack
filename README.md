@@ -267,6 +267,18 @@ save format live next to the schema that enforces them (e.g. `MaxLevel = 99`, `M
 documented on the `GameConfig` case class. What follows walks every top-level section and key, with
 the shipped values in brackets.
 
+#### `clock` — the day / time of day
+
+Every turn takes `minutesPerTurn` minutes of play, so the status bar turns a raw turn count into a
+day number and a wall-clock time next to the turn (e.g. `223 turns · Day 2, 21:10`).
+
+- **`clock.minutesPerTurn`** `[10]` — how long one turn takes. Six turns are an hour, and a full 24
+  hours of play (144 turns shipped) rolls the day over.
+- **`clock.hoursOffset`** `[32]` — the wall-clock hour turn 0 lands on. Only the hour matters: 32 ≡
+  08:00 mod 24, so Day 1 opens at 08:00. The day number starts at 1 and counts completed 24-hour
+  blocks of play, so it is independent of the offset, and the clock wraps around midnight. The
+  offset is just the start hour plus as many whole 24-hour blocks as keeps the number tidy.
+
 #### `play` — the effort / resting cycle
 
 - **`play.fatigue.max`** `[10]` — how tired a character can get. Every action that adds fatigue

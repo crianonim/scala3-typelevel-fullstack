@@ -1,4 +1,8 @@
 {
+  "clock": {
+    "minutesPerTurn": 10,
+    "hoursOffset": 32
+  },
   "play": {
     "fatigue": {
       "max": 10,

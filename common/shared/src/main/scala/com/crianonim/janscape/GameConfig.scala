@@ -54,6 +54,43 @@ case class RestConfig(turns: Int):
 object RestConfig:
   given Decoder[RestConfig] = deriveDecoder
 
+/** The game clock: each turn lasts `minutesPerTurn` minutes of play and the day rolls over every 24
+  * hours of play, so 144 turns at 10 minutes is a full day. `hoursOffset` sets the wall-clock hour
+  * turn 0 lands on (32 → Day 1 opens at 08:00; only the hour matters, the offset is just the hour
+  * plus as many whole days as the designer finds tidy). The day starts at 1 and the clock wraps at
+  * midnight: after 24 hours out of the 32-offset start the character is on Day 2 at 08:00.
+  */
+case class ClockConfig(minutesPerTurn: Int, hoursOffset: Int):
+  import ClockConfig.MinutesPerDay
+
+  def issues(path: String): List[Issue] =
+    atLeast(s"$path.minutesPerTurn", minutesPerTurn, 1) ++
+      atLeast(s"$path.hoursOffset", hoursOffset, 0)
+
+  /** The day number and wall-clock time a turn count lands on. Both inputs stay non-negative, so
+    * the plain remainder is safe: the clock wraps forward around midnight and never behind it.
+    */
+  def at(turns: Int): DayTime =
+    val elapsed = turns.toLong * minutesPerTurn
+    val clock   = (elapsed + hoursOffset.toLong * 60) % MinutesPerDay
+    DayTime(
+      day = (elapsed / MinutesPerDay).toInt + 1,
+      hour = (clock / 60).toInt,
+      minute = (clock % 60).toInt
+    )
+
+object ClockConfig:
+  val MinutesPerDay = 24 * 60L
+
+  given Decoder[ClockConfig] = deriveDecoder
+
+/** A spot on the game clock, as [[ClockConfig.at]] derives it from a turn count. `day` counts up
+  * from 1 (turn 0 is Day 1), `hour` runs 0-23 and `minute` 0-59, so it renders like a wall clock.
+  */
+case class DayTime(day: Int, hour: Int, minute: Int):
+  /** "Day 2, 21:10" — the minute is zero-padded so an 08:00 start reads as a clock. */
+  override def toString: String = f"Day $day, $hour:${minute}%02d"
+
 case class PlayConfig(fatigue: FatigueConfig, rest: RestConfig):
   def issues(path: String): List[Issue] =
     fatigue.issues(s"$path.fatigue") ++ rest.issues(s"$path.rest")
@@ -399,6 +436,7 @@ object ForestConfig:
   * next to the schema that enforces them — MAX_LEVEL and MAX_SAVE_FATIGUE are examples.
   */
 case class GameConfig(
+    clock: ClockConfig,
     play: PlayConfig,
     skills: SkillsConfig,
     mining: MiningConfig,
@@ -408,7 +446,8 @@ case class GameConfig(
     forest: ForestConfig
 ):
   def issues: List[Issue] =
-    play.issues("play") ++
+    clock.issues("clock") ++
+      play.issues("play") ++
       skills.issues("skills") ++
       mining.issues("mining") ++
       crafting.issues("crafting") ++

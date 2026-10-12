@@ -11,6 +11,8 @@ class GameConfigTest extends FunSuite:
 
   test("defaults match the config's own numbers"):
     val config = GameConfig.default
+    assertEquals(config.clock.minutesPerTurn, 10)
+    assertEquals(config.clock.hoursOffset, 32)
     assertEquals(config.play.fatigue.max, 10)
     assertEquals(config.play.rest.turns, 10)
     assertEquals(config.skills.xpPerLevelSquared, 10.0)
@@ -83,6 +85,11 @@ class GameConfigTest extends FunSuite:
       config.copy(forest =
         config.forest.copy(resources = config.forest.resources.removed("mushrooms"))
       )
+    }
+
+  test("a clock that never advances is rejected"):
+    assertInvalid("must be >= 1") { config =>
+      config.copy(clock = ClockConfig(minutesPerTurn = 0, hoursOffset = 32))
     }
 
   test("a not-a-json config reports NotJson"):

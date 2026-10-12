@@ -1045,13 +1045,14 @@ object JanscapeApp:
     val fatigueMax = config.play.fatigue.max
     val fatiguePct =
       math.min(100, math.round(character.fatigue * 100.0 / math.max(1, fatigueMax)).toInt)
+    val clock = config.clock.at(character.turn)
     div(
       cls := "flex w-full max-w-sm items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2"
     )(
       div(cls := "flex min-w-0 items-baseline gap-2")(
         span(cls := "truncate text-sm font-semibold text-gray-700")(text(character.name)),
         span(cls := "text-xs font-medium tabular-nums text-gray-500")(
-          text(turnWord(character.turn))
+          text(s"${turnWord(character.turn)} · $clock")
         )
       ),
       div(cls := "h-6 w-px shrink-0 bg-gray-200")(),
