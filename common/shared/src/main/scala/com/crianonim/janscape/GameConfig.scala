@@ -387,7 +387,9 @@ case class ForestConfig(
 object ForestConfig:
   given Decoder[ForestConfig] = deriveDecoder
 
-/** The tunable side of the game, verbatim from config/game.json (see [[GameConfigJson]]).
+/** The tunable side of the game, verbatim from `gameConfig.json`
+  * (`common/shared/src/main/resources/com/crianonim/janscape/gameConfig.json`, surfaced to both
+  * platforms as [[GameConfigJson]].
   *
   * Two rules govern what belongs there versus in code: tunables are numbers a designer adjusts
   * while balancing, and structural invariants are numbers that describe the save format, which stay

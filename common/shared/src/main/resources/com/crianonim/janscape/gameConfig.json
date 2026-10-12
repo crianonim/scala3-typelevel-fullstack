@@ -1,13 +1,4 @@
-package com.crianonim.janscape
-
-/** A verbatim copy of the TypeScript original's config/game.json, kept in the module that reads it:
-  * the config schema, the validation and the numbers they check all come from one source. When the
-  * original's file changes, the two are diffed by hand — [[GameConfig.parse]] catches anything this
-  * copy gets wrong as an invalid config rather than a wrong game.
-  */
-object GameConfigJson:
-  val raw: String =
-    """{
+{
   "play": {
     "fatigue": {
       "max": 10,
@@ -248,4 +239,3 @@ object GameConfigJson:
     }
   }
 }
-"""

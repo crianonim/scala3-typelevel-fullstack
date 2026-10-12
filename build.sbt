@@ -28,7 +28,35 @@ lazy val core = (crossProject(JSPlatform, JVMPlatform) in file("common"))
       "org.scalameta"     %%% "munit"           % munitVersion % Test,
       "org.typelevel"     %%% "munit-cats-effect" % "2.2.1"    % Test
     ),
-    testFrameworks += new TestFramework("munit.Framework")
+    testFrameworks += new TestFramework("munit.Framework"),
+    // The Janscape game config lives as JSON in shared/src/main/resources/...
+    // (gameConfig.json) — the single source of truth. Scala.js cannot read classpath
+    // resources at runtime, so read the file at build time and generate a
+    // GameConfigJson.raw string that both the JVM and the JS platform get identically.
+    Compile / sourceGenerators += Def.task {
+      val jsonFile = (ThisBuild / baseDirectory).value /
+        "common" / "shared" / "src" / "main" / "resources" /
+        "com" / "crianonim" / "janscape" / "gameConfig.json"
+      val json     = IO.read(jsonFile)
+      require(!json.contains("\"\"\""), s"$jsonFile contains a triple quote and cannot be embedded")
+      val out = (Compile / sourceManaged).value /
+        "com" / "crianonim" / "janscape" / "GameConfigJson.scala"
+      IO.write(
+        out,
+        s"""package com.crianonim.janscape
+           |
+           |/** Generated from gameConfig.json at build time (see build.sbt). The JSON file is the
+           |  * single source of truth; this object makes its text available to the JVM and to
+           |  * Scala.js at runtime, so the config schema, the validation and the numbers they check
+           |  * all come from one source.
+           |  */
+           |object GameConfigJson:
+           |  val raw: String =
+           |    \"\"\"$json\"\"\"
+           |""".stripMargin
+      )
+      Seq(out)
+    }.taskValue
   )
   .jvmSettings(
     // add here if necessary

@@ -249,6 +249,205 @@ and DialogGame apps therefore resolve effectful data to plain strings inside `up
 `Cmd.Run` with a `Random`) and store the result in the model for `view` to render. Keep that
 invariant if you extend them.
 
+### Janscape: what the ruleset in `gameConfig.json` means
+
+The only app whose rules are data rather than code. The whole balance of the game lives in a single
+JSON file — `common/shared/src/main/resources/com/crianonim/janscape/gameConfig.json` — which is the
+single source of truth. At build time `build.sbt` reads it and generates `GameConfigJson.raw`
+(`src_managed`, so both the JVM and Scala.js get the identical text; Scala.js cannot load classpath
+resources at runtime), and `GameConfig.default` parses it on first use. `GameConfig.parse` runs a
+validation pass over it (`GameConfig.issues`) and **throws if the file is invalid**, so a typo or a
+self-contradictory balance is caught at startup rather than mid-game. Editing the file means a
+recompile: `sbt "app / fastOptJS"` for the app, `sbt "coreJVM / test"` / `sbt "coreJS / test"` to run
+the config tests that pin the mechanics (`GameConfigTest`, `PowerTest`).
+
+The rules deliberately stay in the file only where they are *tunables*; structural invariants of the
+save format live next to the schema that enforces them (e.g. `MaxLevel = 99`, `MaxSaveFatigue =
+1000`, the "Mining Tool" slot name, the starting loadout). The two rules that govern the split are
+documented on the `GameConfig` case class. What follows walks every top-level section and key, with
+the shipped values in brackets.
+
+#### `play` — the effort / resting cycle
+
+- **`play.fatigue.max`** `[10]` — how tired a character can get. Every action that adds fatigue
+  clamps to this. It is the gameplay cap; the save-format guard `MaxSaveFatigue` (1000) exists
+  purely to reject nonsense from a hand-edited save.
+- **`play.fatigue.rollMax`** `[100]` — the upper bound of the effort roll: each action draws
+  `1..rollMax`. The roll is drawn once per action before anything else happens, so a swing's
+  randomness stays in one place.
+- **`play.fatigue.exponent`** `[2]` — the effort threshold is `min(fatigue, max)^exponent`; an
+  action lands only if `roll >= threshold`. Squaring makes tiredness climb faster than fatigue
+  itself. With the shipped numbers a roll of 1..100 faces fatigue²: at 1 fatigue the threshold is 1
+  so nothing fails, and at the cap of 10 only a perfect 100 gets through. `Fatigue.landChance`
+  surfaces this to the player; the config invariant `max^exponent <= rollMax` guarantees that `max`
+  fatigue is *possible* to overcome (a perfect roll succeeds).
+- **`play.rest.turns`** `[10]` — the fixed turn cost of the Rest action, which removes exactly one
+  level of fatigue (clamped to `max`). Fixed cost keeps the economy stable no matter how tired the
+  character was. Rest is only offered while `fatigue > 0`.
+
+#### `skills` — the levelling curve
+
+- **`skills.xpPerLevelSquared`** `[10]` — the single constant of the XP curve, shared by every
+  skill. Level is `floor(sqrt(xp / x)) + 1`, capped at 99, so each level costs
+  `x * level²` *cumulative* XP: level 2 needs `10·1²=10`, level 3 needs `10·2²=40`, level 10 needs
+  1000. The three active skills are Mining and Forestry (gathering) and Smithing (crafting); Combat
+  exists in the save enum but nothing drives it yet.
+
+#### `mining` — swinging, descending, depth factor, floors
+
+- **`mining.swing.baseTurns` / `turnsPerTier` / `turnsPerPower` / `minTurns`**
+  `[2 / 1 / 1 / 1]` — the time a swing at a node costs:
+  `turns = clamp(base + perTier·tier − perPower·relief, min = minTurns)`, where `tier` is the
+  material's power requirement and `relief` is how much the character's mining power exceeds it
+  (clamped to 0, so an under-powered swing pays full cost rather than negative relief). Time comes
+  from the material and the *equipped tool*, never from the Mining skill or the depth. `minTurns`
+  floors it so overwhelming power still leaves a swing to make.
+- **`mining.swing.xpPerMine`** `[1]` — skill XP for a *landed* swing. Floored, fixed per swing,
+  independent of the material. A missed swing earns nothing.
+- **`mining.swing.fatigue`** `[1]` — the fatigue added when a landed swing trips its tiring roll
+  (see `fatigueChance`).
+- **`mining.ladder.chance`** `[0.1]` — probability a landed swing uncovers the ladder. Rolled only
+  on a swing that *landed* (a miss never finds it), only while no ladder is already held, and
+  **clearing a floor always yields one** — so unlucky rolls cannot strand a character on a level
+  they have emptied. Holding a ladder is what enables Descend.
+- **`mining.ladder.descendTurns` / `descendFatigue`** `[20 / 1]` — the price of going down one
+  level: the ladder is consumed and turns + fatigue are spent. Descending rolls the destination
+  floor fresh and records a fast-travel shortcut if the level is a milestone — so a deep climb is a
+  real cost, not a free ride.
+- **`mining.fastTravel.everyLevels`** `[5]` — every multiple of this mine level is a shortcut the
+  character can travel to from the entrance (level 1 is always offered, plus every shortcut earned).
+  Shortcuts are earned by *depth*, not skill, so a shortcut can never carry a character somewhere
+  they have not already been; travelling to a shortcut is free. Also used by the forest.
+- **`mining.depthFactor.levelsPerPoint` / `max`** `[5 / 3]` — the depth factor, the game's core
+  dial: `floor((Mining level − mine level) / levelsPerPoint)`, **truncated** toward zero (a gap of
+  1-4 either way never counts) and clamped to ±`max`. A higher Mining level than the floor you are
+  on makes everything easier (tiring less, yielding more); the forest mirrors it exactly. It drives
+  the fatigue-chance and yield adjustments below.
+- **`mining.fatigueChance.base` / `perDepthFactorPoint` / `perTier` / `perPower` / `minFactor`**
+  `[0.5 / 0.1 / 0.75 / 0.25 / 0.1]` — the chance a *landed* swing tires you, per material:
+  `clamp(base − perPoint·depthFactor, 0..1) × clamp(minFactor, 1 + perTier·tier − perPower·relief)`.
+  The first factor is the depth dial — at depthFactor 3 the 0.5 base drops to 0.2; the second layers the material on top (harder ore wears more, and *surplus* power
+  buys some of that back). `minFactor` floors the multiplier so overwhelming power can't drive it to
+  zero, and the whole thing is clamped to `0..1`.
+- **`mining.nodes.min` / `max`** `[10 / 25]` — how many nodes a floor holds. Rolled fresh every
+  time the character *arrives* at a level (enter or descend); split across the schedule's materials
+  by relative weight, so proportions stay visible on every floor.
+- **`mining.materials.bandLevels` / `minShare`** `[5 / 0.05]` — with `bands`, this is the depth
+  schedule shared with the forest. `bandLevels` is how many levels one band covers; the **first band
+  is one level short**, so every band after it starts on a multiple of `bandLevels` — which is why
+  the shipped value (5) lines resource debuts up with the fast-travel milestones (level 5, 10, …).
+  `minShare` drops a resource from a floor once its share of the total weight falls below it, which
+  is what lets a resource fade out instead of clinging on next to the one fading in. It never
+  drifts with skill — only depth feeds it.
+- **`mining.materials.bands[]`** — `from` is the mix of materials (weights) that open the band,
+  `to` the mix it ramps into linearly across the band's levels; an omitted `to` means the band holds
+  where it started. The **last band covers every level below it**, which is what makes a mine or
+  forest arbitrarily deep without the schedule running out. Sharing is by relative weight, allocated
+  with largest-remainder in config order, and entries that come out with zero share are dropped
+  rather than shown as an empty button. Validation insists each band has a positive weight and that
+  the bands stay consistent with `power`.
+- **`mining.materials.power`** `[stone 0, coal 0, copper ore 1, tin ore 2, iron ore 3, silver
+  ore 4]` — the mining power it takes to break each material (the "tier" used above). A tool grants
+  power for everything ≤ its own value, so the stone pickaxe (1) breaks stone, coal and copper.
+  Stone and coal at 0 means the bare-handed character can already gather them. The table is declared
+  for the *whole* schedule rather than per band, so one material has one cost everywhere it appears;
+  validation requires every material named in a band to have a price, and the schedule to only name
+  priced materials.
+
+#### `crafting` — recipes
+
+Each recipe under **`crafting.recipes.<item>`** has:
+
+- **`level`** — the Smithing level the recipe opens at. This is the only skill gate in crafting.
+- **`inputs`** — a material → quantity map consumed per item.
+- **`turns`** — turns **per item**: a batch of N costs `turns × N` and grants the same in XP
+  (Smithing XP equals turns spent). The batch is capped at the character's Smithing level.
+  `Recipe.maxBatch` also respects how many inputs are on hand. Validation requires every recipe to
+  have a level ≥ 1, a positive turn cost and at least one input.
+- The shipped recipes are the one gate by which the tool tier ladder (stone → copper → bronze
+  pickaxe and axe) is *earned* — pickaxes/axes are crafted items, then wear in the equipment slots
+  below.
+
+#### `equipment` — slots and tool power
+
+- **`equipment.slots.<slot>`** — one slot maps the items it accepts to the power they grant,
+  in the order swaps should be offered. Only two slots exist today: "Mining Tool" and "Forestry
+  Tool". A tool's *power* is what matters: equipped mining power is read from config at use time
+  (never stored on the save), so swapping tools changes what can be broken immediately and the two
+  can never drift. An empty slot grants no power.
+- Validation guarantees every starting item (the character begins with a stone pickaxe equipped)
+  has a slot that accepts it, an item belongs to at most one slot, and each slot has at least one
+  item.
+
+#### `building` — buildables
+
+Each entry under **`building.buildables.<name>`, one-off stations**:
+
+- **`inputs`** / **`turns`** — what it consumes and how long it takes. There is deliberately **no
+  level gate and no XP**: building is a material sink and a one-off, unlike a repeatable recipe.
+  Only one of each station can ever exist, and validation requires a positive turn cost and at least
+  one input. The shipped set (`Furnace`, `Basic Workbench`, `Stone Anvil`) is currently a cosmetic
+  progression track: nothing in the game reads the `buildings` list except `Building.isBuilt` /
+  `canBuild`, so no station unlocks anything yet.
+
+#### `forest` — gathering in glades (depth, resources, the path)
+
+The forest has the same "depth/turns/fast-travel/depth-factor" spine as the mine — the two share
+`NodeCount`, `Schedule`, `FastTravelConfig` and `DepthFactorConfig` — but instead of nodes/materials
+it has glade resources with yields, and the ladder is replaced by the path. It calls its axis
+*depth* where the mine says *level*; a save field and one unlock list serve both.
+
+- **`forest.glade.min` / `max`** `[10 / 25]` — how many gather-nodes a glade holds, rolled fresh on
+  arrival, exactly like mine nodes.
+- **`forest.schedule.bandLevels` / `minShare` / `bands[]`** `[5 / 0.05 / 4 bands]` — the same
+  schedule shape as mining, with weights across the glade's resources. The shipped four bands walk
+  sticks → berries → ash trees → mushrooms, with the ash tree debuting exactly at depth 5 (the first
+  fast-travel milestone).
+- **`forest.resources.<item>.tier`** `[sticks 0, berries 0, ash tree 1, mushrooms 2]` — feeds only
+  the fatigue multiplier below. Unlike the mine there is **no gear gate**: `canHarvest` only checks
+  the resource is configured, so tier never locks a resource.
+- **`forest.resources.<item>.turns`** — turns per gather. The Forestry XP earned equals the turns
+  spent, so a slow tree is also a better teacher.
+- **`forest.resources.<item>.yield.min` / `max`** `[2-4, 2-4, 2-10, 2-4]` — the range a gather
+  brings back. Zero is allowed (a resource that can come up empty is a real outcome — unlike a node
+  count, which cannot); the range is shifted by the depth factor (see `yieldFactor`) and `max >=
+  min` is enforced.
+- **`forest.resources.<item>.tiring`** `[sticks false, berries false, ash tree true, mushrooms
+  false]` — whether the *resource does the working on the character*: chopping an ash tree is an
+  effort, picking berries or a fallen stick is not. Only a `tiring` gather rolls the fatigue check
+  at all (and the effort check that precedes it).
+- **`forest.chop.fatigue`** `[1]` — the fatigue added when a tiring gather trips its roll.
+- **`forest.path.chance`** `[0.1]` — probability a *landed* gather turns up the path (the forest's
+  ladder). Rolled per gather, only while none is held, and never on a miss or a too-tired-to-attempt
+  gather — the mirror of the mine's ladder rules.
+- **`forest.path.deeperTurns` / `deeperFatigue`** `[20 / 1]` — the price of going one glade deeper:
+  the path is consumed, turns + fatigue spent, the next glade rolled, and a fast-travel milestone
+  record if the depth qualifies.
+- **`forest.fastTravel` / `depthFactor`** — identical semantics to the mine's (multiples of
+  `everyLevels`, gap over `levelsPerPoint` truncated and clamped to ±`max`).
+- **`forest.yieldFactor.perDepthFactorPoint` / `min`** `[1 / 1]` — the depth dial on yields: the
+  range is shifted by `perPoint × depthFactor` on both ends, floored at `min`. With the shipped
+  numbers, each point of depth factor is 1 unit of yield — being over-levelled for a glade makes it
+  produce more.
+- **`forest.pathChance.base` / `perDepthFactorPoint`** `[0.1 / 0.05]` — the path's own depth dial:
+  `base + perPoint × depthFactor`. Working a glade well means reaching the deeper parts of it, not
+  merely being quicker.
+- **`forest.fatigueChance.base` / `perDepthFactorPoint` / `perTier` / `minFactor`**
+  `[0.5 / 0.1 / 0.75 / 0.1]` — the mirror of mining's fatigue chance without the power relief (the
+  forest has no equipment relief, only gear-independent tier): `clamp(base − perPoint·depthFactor,
+  0..1) × clamp(minFactor, 1 + perTier·tier)`, clamped to `0..1`, consulted only for `tiring`
+  resources. At the shipped values an ash tree (tier 1) at depth parity tires 1.75× as often as a
+  stick.
+
+#### What is deliberately *not* in the file
+
+Character creation values and save-format guards live in code: `MaxLevel` (99), `MaxSaveFatigue`
+(1000), `MaxInventoryBytes`, the "Mining Tool" slot name, the starting loadout (stone pickaxe,
+nothing in inventory, no tools for the forest), and both starting depths. Moving any of those into
+the JSON would let a save break the format that validates it, which is exactly the coupling the
+`play.fatigue.max` / `MaxSaveFatigue` split is meant to avoid. The file also cannot express agenda
+logic or UI text — those are code's job; this file exists to tune *numbers*, not prose.
+
 ---
 
 ## 5. The shared `common` module
