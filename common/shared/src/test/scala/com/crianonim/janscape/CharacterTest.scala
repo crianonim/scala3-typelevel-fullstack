@@ -20,6 +20,7 @@ class CharacterTest extends FunSuite:
         assertEquals(character.buildings, Nil)
         assertEquals(character.turn, 0)
         assertEquals(character.fatigue, 0)
+        assertEquals(character.hp, Character.StartingHp)
         assertEquals(character.mineLevel, 1)
         assertEquals(character.hasMineLadder, false)
         assertEquals(character.unlockedMineLevels, Nil)
@@ -28,6 +29,19 @@ class CharacterTest extends FunSuite:
         assertEquals(character.hasForestPath, false)
         assertEquals(character.unlockedForestLevels, Nil)
         assertEquals(character.forestNodes, Nil)
+        assertEquals(character.combatLevel, 1)
+
+  test("a save written before combat existed loads at full HP and depth one"):
+    val parsed = Character.parse(
+      """{"name":"Ellis","skills":{"combat":{"level":4,"xp":90}},
+         |"inventory":[{"item":"stone","count":12}],"turn":40}""".stripMargin
+    )
+    parsed match
+      case Left(error)      => fail(error.message)
+      case Right(character) =>
+        assertEquals(character.skills.combat.level, 4)
+        assertEquals(character.hp, Character.StartingHp)
+        assertEquals(character.combatLevel, 1)
 
   test("a save written before the forest existed still loads"):
     val parsed = Character.parse(
@@ -103,3 +117,9 @@ class CharacterTest extends FunSuite:
     val character = Character.createCharacter("Ellis").copy(fatigue = 8)
     assertEquals(Character.addFatigue(character, 5, 10).fatigue, 10)
     assertEquals(Character.addFatigue(character, -99, 10).fatigue, 0)
+
+  test("hp floors at zero and a win opens the next arena depth"):
+    val character = Character.createCharacter("Ellis").copy(hp = 3)
+    assertEquals(Character.setHp(character, -5).hp, 0)
+    assertEquals(Character.setHp(character, 12).hp, 12)
+    assertEquals(Character.goDeeperCombat(character).combatLevel, character.combatLevel + 1)

@@ -10,6 +10,7 @@ class EquipmentTest extends CatsEffectSuite:
   private val equipment = GameConfig.default.equipment
   private val Slot      = Character.MiningToolSlot
   private val Axe       = "Forestry Tool"
+  private val Weapon    = Character.WeaponSlot
 
   private def held(character: Character, item: String): Int =
     Character.heldAmount(character, item)
@@ -34,10 +35,11 @@ class EquipmentTest extends CatsEffectSuite:
     val fresh = Character.createCharacter("Tester")
     assertEquals(fresh.equipment.get(Slot), Some("stone pickaxe"))
     assertEquals(fresh.equipment.get(Axe), Some("stone axe"))
+    assertEquals(fresh.equipment.get(Weapon), Some("stick"))
     assertEquals(held(fresh, "stone pickaxe"), 0)
     assertEquals(
       Character.StartingEquipment,
-      Map(Slot -> "stone pickaxe", Axe -> "stone axe")
+      Map(Slot -> "stone pickaxe", Axe -> "stone axe", Weapon -> "stick")
     )
 
   test("the config declares the slots"):
@@ -50,11 +52,16 @@ class EquipmentTest extends CatsEffectSuite:
       Some(ListMap("stone axe" -> 1, "copper axe" -> 2, "bronze axe" -> 3))
     )
     assertEquals(
+      equipment.slots.get(Weapon),
+      Some(ListMap("stick" -> 2, "dagger" -> 4, "sword" -> 6))
+    )
+    assertEquals(
       equipment.slots(Slot).values.toList,
       equipment.slots(Axe).values.toList
     )
     assertEquals(Character.createCharacter("Tester").equipment.get(Axe), Some("stone axe"))
     assertEquals(Equipment.slotFor("copper axe", equipment), Some(Axe))
+    assertEquals(Equipment.slotFor("sword", equipment), Some(Weapon))
 
   test("legacy saves gain the loadout"):
     val legacy = Character.parse("""{"name":"Old","skills":{}}""")
@@ -63,6 +70,7 @@ class EquipmentTest extends CatsEffectSuite:
       case Right(old)  =>
         assertEquals(old.equipment.get(Slot), Some("stone pickaxe"))
         assertEquals(old.equipment.get(Axe), Some("stone axe"))
+        assertEquals(old.equipment.get(Weapon), Some("stick"))
 
     val round = Character.parse(Character.encode(Character.createCharacter("X")))
     round match
@@ -70,6 +78,7 @@ class EquipmentTest extends CatsEffectSuite:
       case Right(loaded) =>
         assertEquals(loaded.equipment.get(Slot), Some("stone pickaxe"))
         assertEquals(loaded.equipment.get(Axe), Some("stone axe"))
+        assertEquals(loaded.equipment.get(Weapon), Some("stick"))
 
   test("reading equipment"):
     val fresh = Character.createCharacter("Tester")

@@ -25,6 +25,14 @@ class GameConfigTest extends FunSuite:
     assertEquals(config.forest.glade.min, 10)
     assertEquals(config.forest.resources("ash logs").power, 1)
     assertEquals(config.forest.chop.fatigue, 1)
+    assertEquals(config.combat.characterHp, 20)
+    assertEquals(config.combat.opponents("wolf").combat, 2)
+    assertEquals(config.combat.opponents("wolf").hp, 15)
+    assertEquals(config.combat.hitChance.base, 0.5)
+    assertEquals(config.combat.damageVariance, 0.3)
+    assertEquals(config.combat.deeperTurns, 20)
+    assertEquals(config.combat.lossTurns, 30)
+    assertEquals(config.combat.lossHpFraction, 0.5)
 
   test("material power looks up a material and misses an unknown one"):
     val materials = GameConfig.default.mining.materials
@@ -90,6 +98,29 @@ class GameConfigTest extends FunSuite:
   test("a clock that never advances is rejected"):
     assertInvalid("must be >= 1") { config =>
       config.copy(clock = ClockConfig(minutesPerTurn = 0, hoursOffset = 32))
+    }
+
+  test("an opponent with no Combat is rejected"):
+    assertInvalid("must be >= 1") { config =>
+      config.copy(combat =
+        config.combat.copy(opponents =
+          config.combat.opponents.updated("wolf", OpponentConfig(combat = 0, damage = 4, hp = 15))
+        )
+      )
+    }
+
+  test("a hit-chance floor above its ceiling is rejected"):
+    assertInvalid("min must be <= max") { config =>
+      config.copy(combat =
+        config.combat.copy(hitChance =
+          config.combat.hitChance.copy(min = 0.9, max = 0.1)
+        )
+      )
+    }
+
+  test("a character with no HP pool is rejected"):
+    assertInvalid("must be >= 1") { config =>
+      config.copy(combat = config.combat.copy(characterHp = 0))
     }
 
   test("a not-a-json config reports NotJson"):

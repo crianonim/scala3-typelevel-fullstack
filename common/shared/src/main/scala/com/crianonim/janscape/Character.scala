@@ -18,6 +18,7 @@ case class Character(
     buildings: List[String],
     turn: Int,
     fatigue: Int,
+    hp: Int,
     mineLevel: Int,
     hasMineLadder: Boolean,
     unlockedMineLevels: List[Int],
@@ -25,7 +26,8 @@ case class Character(
     forestLevel: Int,
     hasForestPath: Boolean,
     unlockedForestLevels: List[Int],
-    forestNodes: List[ItemStack]
+    forestNodes: List[ItemStack],
+    combatLevel: Int
 ):
 
   /** Rejects nonsense from a hand-edited save, mirroring the zod schema's ranges. Runs before
@@ -51,8 +53,14 @@ case class Character(
         fatigue >= 0 && fatigue <= Character.MaxSaveFatigue,
         s"must be between 0 and ${Character.MaxSaveFatigue}"
       ) ++
+      Issue.when(
+        "hp",
+        hp >= 0 && hp <= Character.MaxSaveHp,
+        s"must be between 0 and ${Character.MaxSaveHp}"
+      ) ++
       Issue.when("mineLevel", mineLevel >= 1, "must be >= 1") ++
       Issue.when("forestLevel", forestLevel >= 1, "must be >= 1") ++
+      Issue.when("combatLevel", combatLevel >= 1, "must be >= 1") ++
       unlockIssues(unlockedMineLevels, "unlockedMineLevels") ++
       unlockIssues(unlockedForestLevels, "unlockedForestLevels")
 
@@ -95,6 +103,7 @@ object Character:
 
   val StartingTurns     = 0
   val StartingFatigue   = 0
+  val StartingHp        = 20
   val StartingMineLevel = 1
 
   /** The depth the character starts at in the forest. The forest calls it depth where the mine
@@ -102,6 +111,11 @@ object Character:
     * depth schedule can serve both.
     */
   val StartingForestLevel = 1
+
+  /** The arena depth the character starts at. Every fight won opens the next, where the opponent is
+    * a little stronger.
+    */
+  val StartingCombatLevel = 1
 
   /** The slot whose equipped tool grants mining power. Slots and the power their items carry live
     * in config, but which slot the mine reads is a structural fact, so it lives here beside the
@@ -114,14 +128,28 @@ object Character:
     */
   val ForestryToolSlot = "Forestry Tool"
 
+  /** The slot whose equipped item is the character's weapon, and its damage. The mirror of the two
+    * tool slots.
+    */
+  val WeaponSlot = "Weapon"
+
   val StartingEquipment: Map[String, String] =
-    Map(MiningToolSlot -> "stone pickaxe", ForestryToolSlot -> "stone axe")
+    Map(
+      MiningToolSlot -> "stone pickaxe",
+      ForestryToolSlot -> "stone axe",
+      WeaponSlot -> "stick"
+    )
 
   /** Save-format guard only, deliberately far above any real cap: its job is rejecting nonsense
     * from a hand-edited save, not describing how tired a character may get. The gameplay cap is
     * play.fatigue.max in config/game.json.
     */
   val MaxSaveFatigue = 1000
+
+  /** Save-format guard for HP, the mirror of [[MaxSaveFatigue]]: far above any real pool, there
+    * only to reject nonsense. The real pool is combat.characterHp in config/game.json.
+    */
+  val MaxSaveHp = 100000
 
   def createCharacter(name: String): Character =
     Character(
@@ -132,6 +160,7 @@ object Character:
       buildings = Nil,
       turn = StartingTurns,
       fatigue = StartingFatigue,
+      hp = StartingHp,
       mineLevel = StartingMineLevel,
       hasMineLadder = false,
       unlockedMineLevels = Nil,
@@ -139,7 +168,8 @@ object Character:
       forestLevel = StartingForestLevel,
       hasForestPath = false,
       unlockedForestLevels = Nil,
-      forestNodes = Nil
+      forestNodes = Nil,
+      combatLevel = StartingCombatLevel
     )
 
   /** A ladder belongs to the level it was found on, so descending clears it and there is never more
@@ -163,6 +193,16 @@ object Character:
 
   def goDeeperForestLevel(character: Character): Character =
     character.copy(forestLevel = character.forestLevel + 1, hasForestPath = false)
+
+  /** Winning a fight opens the next, where the opponent is one Combat stronger. */
+  def goDeeperCombat(character: Character): Character =
+    character.copy(combatLevel = character.combatLevel + 1)
+
+  /** Sets current HP, floored at zero so a fatality can never write a negative pool. The cap is the
+    * caller's business, since it comes from config rather than the save format.
+    */
+  def setHp(character: Character, hp: Int): Character =
+    character.copy(hp = math.max(0, hp))
 
   def addForestUnlock(character: Character, level: Int): Character =
     if character.unlockedForestLevels.contains(level) then character
@@ -269,6 +309,7 @@ object Character:
       buildings          <- c.downField("buildings").as[Option[List[String]]].map(_.getOrElse(Nil))
       turn               <- int("turn", StartingTurns)
       fatigue            <- int("fatigue", StartingFatigue)
+      hp                 <- int("hp", StartingHp)
       mineLevel          <- int("mineLevel", StartingMineLevel)
       hasMineLadder      <- bool("hasMineLadder", false)
       unlockedMineLevels <- ints("unlockedMineLevels")
@@ -277,6 +318,7 @@ object Character:
       hasForestPath      <- bool("hasForestPath", false)
       unlockedForestLevels <- ints("unlockedForestLevels")
       forestNodes          <- stacks("forestNodes")
+      combatLevel          <- int("combatLevel", StartingCombatLevel)
     yield Character(
       name = name.trim,
       skills = skills,
@@ -285,6 +327,7 @@ object Character:
       buildings = buildings,
       turn = turn,
       fatigue = fatigue,
+      hp = hp,
       mineLevel = mineLevel,
       hasMineLadder = hasMineLadder,
       unlockedMineLevels = unlockedMineLevels,
@@ -292,7 +335,8 @@ object Character:
       forestLevel = forestLevel,
       hasForestPath = hasForestPath,
       unlockedForestLevels = unlockedForestLevels,
-      forestNodes = forestNodes
+      forestNodes = forestNodes,
+      combatLevel = combatLevel
     )
   }
 

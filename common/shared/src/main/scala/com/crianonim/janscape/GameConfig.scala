@@ -239,6 +239,65 @@ object CraftingConfig:
   * starting loadout is checked against the same map so a fresh character cannot begin holding
   * something no slot accepts.
   */
+/** One opponent in the arena. `combat` is opposed by the character's Combat to decide hits, `hp` is
+  * how much punishment it soaks before it falls, and `damage` is what its weapon puts out.
+  */
+case class OpponentConfig(combat: Int, damage: Int, hp: Int):
+  def issues(path: String): List[Issue] =
+    atLeast(s"$path.combat", combat, 1) ++
+      atLeast(s"$path.damage", damage, 0) ++
+      atLeast(s"$path.hp", hp, 1)
+
+object OpponentConfig:
+  given Decoder[OpponentConfig] = deriveDecoder
+
+/** How the chance to hit swings with the gap in Combat. Equal fighters meet at `base`, every point
+  * of difference moves it by `perPoint`, and the result is clamped between `min` and `max` so no
+  * matchup is ever a guaranteed hit or a guaranteed miss.
+  */
+case class HitChanceConfig(base: Double, perPoint: Double, min: Double, max: Double):
+  def issues(path: String): List[Issue] =
+    withinUnit(s"$path.base", base) ++
+      atLeast(s"$path.perPoint", perPoint, 0) ++
+      withinUnit(s"$path.min", min) ++
+      withinUnit(s"$path.max", max) ++
+      Issue.when(s"$path.min", min <= max, "min must be <= max")
+
+object HitChanceConfig:
+  given Decoder[HitChanceConfig] = deriveDecoder
+
+/** The arena: the character's HP pool, the opponents on offer, and the knobs behind a hit. Damage
+  * rolls vary by `damageVariance` (a fraction either way, floored at 1). Going deeper costs turns
+  * and fatigue but restores the character to full, while losing costs `lossTurns` turns and leaves
+  * them on `lossHpFraction` of their pool.
+  */
+case class CombatConfig(
+    characterHp: Int,
+    opponents: ListMap[String, OpponentConfig],
+    hitChance: HitChanceConfig,
+    damageVariance: Double,
+    deeperTurns: Int,
+    deeperFatigue: Int,
+    lossTurns: Int,
+    lossHpFraction: Double
+):
+  def issues(path: String): List[Issue] =
+    atLeast(s"$path.characterHp", characterHp, 1) ++
+      Issue.when(s"$path.opponents", opponents.nonEmpty, "the arena needs at least one opponent") ++
+      nonEmptyKeys(s"$path.opponents", opponents.keys) ++
+      opponents.toList.flatMap { case (name, opponent) =>
+        opponent.issues(s"$path.opponents.$name")
+      } ++
+      hitChance.issues(s"$path.hitChance") ++
+      withinUnit(s"$path.damageVariance", damageVariance) ++
+      atLeast(s"$path.deeperTurns", deeperTurns, 0) ++
+      atLeast(s"$path.deeperFatigue", deeperFatigue, 0) ++
+      atLeast(s"$path.lossTurns", lossTurns, 0) ++
+      withinUnit(s"$path.lossHpFraction", lossHpFraction)
+
+object CombatConfig:
+  given Decoder[CombatConfig] = deriveDecoder
+
 case class EquipmentConfig(slots: ListMap[String, ListMap[String, Int]]):
   def issues(path: String): List[Issue] =
     nonEmptyKeys(s"$path.slots", slots.keys) ++
@@ -443,7 +502,8 @@ case class GameConfig(
     crafting: CraftingConfig,
     equipment: EquipmentConfig,
     building: BuildingConfig,
-    forest: ForestConfig
+    forest: ForestConfig,
+    combat: CombatConfig
 ):
   def issues: List[Issue] =
     clock.issues("clock") ++
@@ -453,7 +513,8 @@ case class GameConfig(
       crafting.issues("crafting") ++
       equipment.issues("equipment") ++
       building.issues("building") ++
-      forest.issues("forest")
+      forest.issues("forest") ++
+      combat.issues("combat")
 
 object GameConfig:
   given Decoder[GameConfig] = deriveDecoder

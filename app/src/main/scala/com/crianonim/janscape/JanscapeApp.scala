@@ -27,7 +27,7 @@ object JanscapeApp:
     * page remount did in the original.
     */
   enum Screen:
-    case Menu, Play, Mine, Craft, Build, Forest
+    case Menu, Play, Mine, Craft, Build, Forest, Combat
 
   /** The collapsible HUD sections: a closed section is a single button in the top row and opens
     * into its full list when pressed.
@@ -41,6 +41,7 @@ object JanscapeApp:
       screen: Screen,
       mineEntry: Option[Int],
       forestEntry: Option[Int],
+      opponent: Option[Opponent],
       hudOpen: Set[HudPane],
       showOptions: Boolean,
       nameInput: String,
@@ -77,6 +78,9 @@ object JanscapeApp:
     case Harvested(result: Either[GameError, HarvestOutcome])
     case GoDeeper
     case Deepened(outcome: DeeperOutcome)
+    case Attack
+    case Attacked(outcome: CombatOutcome)
+    case GoDeeperCombat
 
   def init: Model = Model(
     config = GameConfig.default,
@@ -84,6 +88,7 @@ object JanscapeApp:
     screen = Screen.Menu,
     mineEntry = None,
     forestEntry = None,
+    opponent = None,
     hudOpen = Set.empty,
     showOptions = false,
     nameInput = "",
@@ -176,11 +181,13 @@ object JanscapeApp:
         case Left(error) =>
           (model.copy(nameError = Some(error)), Cmd.None)
         case Right(name) =>
-          val created = Character.createCharacter(name)
+          val created =
+            Character.setHp(Character.createCharacter(name), model.config.combat.characterHp)
           (
             model.copy(
               character = Some(created),
               screen = Screen.Play,
+              opponent = None,
               nameInput = "",
               nameError = None,
               lastAction = None,
@@ -194,6 +201,7 @@ object JanscapeApp:
         screen = next,
         mineEntry = None,
         forestEntry = None,
+        opponent = None,
         showOptions = false,
         lastAction = None,
         error = None
@@ -203,6 +211,11 @@ object JanscapeApp:
           enterMine(updated, Mining.entryLevels(character).head)
         case Some(character) if next == Screen.Forest && Forest.entryDepths(character).size == 1 =>
           enterForest(updated, Forest.entryDepths(character).head)
+        case Some(character) if next == Screen.Combat =>
+          (
+            updated.copy(opponent = Some(Combat.opponentFor(character.combatLevel, model.config))),
+            Cmd.None
+          )
         case _ => (updated, Cmd.None)
 
     case Msg.ToggleHud(pane) =>
@@ -389,6 +402,45 @@ object JanscapeApp:
 
     case Msg.Deepened(outcome) =>
       applied(model, outcome.character, Some(describeDeeper(outcome)))
+
+    // ---- Combat (effectful: the swings are random, and the fight lives only in the model) ----
+
+    case Msg.Attack =>
+      (model.character, model.opponent) match
+        case (Some(character), Some(opponent)) =>
+          val config = model.config
+          (
+            model,
+            Cmd.Run {
+              Random.scalaUtilRandom[IO].flatMap { implicit r =>
+                Combat.attack[IO](character, opponent, config)
+              }
+            }(Msg.Attacked.apply)
+          )
+        case _ => (model, Cmd.None)
+
+    case Msg.Attacked(outcome) =>
+      if outcome.lost then
+        val next = Combat.lose(outcome.character, model.config)
+        applied(
+          model.copy(screen = Screen.Play, opponent = None),
+          next,
+          Some(describeCombat(outcome) + describeDefeat(outcome, next))
+        )
+      else
+        applied(
+          model.copy(opponent = Some(outcome.opponent)),
+          outcome.character,
+          Some(describeCombat(outcome))
+        )
+
+    case Msg.GoDeeperCombat =>
+      model.character match
+        case None            => (model, Cmd.None)
+        case Some(character) =>
+          val outcome = Combat.goDeeper(character, model.config)
+          val (updated, cmd) = applied(model, outcome.character, Some(describeGoDeeperCombat(outcome)))
+          (updated.copy(opponent = Some(outcome.opponent)), cmd)
   }
 
   // ============ OUTCOME NOTES (the original's player-facing strings) ============
@@ -448,6 +500,30 @@ object JanscapeApp:
       outcome.unlocked.fold("")(depth => s" You can now start at depth $depth directly.")
     s"You follow the path to depth ${outcome.depth}. ${outcome.turns} turns, +${outcome.fatigue} fatigue.$unlocked"
 
+  private def describeCombat(outcome: CombatOutcome): String =
+    val name  = outcome.opponent.name
+    val yours =
+      if outcome.youHit then s"You hit the $name for ${outcome.damageDealt}."
+      else s"You swing at the $name and miss."
+    val theirs =
+      if outcome.opponentHit then s" It strikes back for ${outcome.damageTaken}."
+      else s" $name misses you."
+    val xp =
+      if outcome.xp > 0 then s" +${outcome.xp} Combat XP." else ""
+    val levelUp =
+      if outcome.levelsGained > 0 then
+        val plural = if outcome.levelsGained > 1 then "levels " else "level "
+        s" Level up! Combat is now $plural${outcome.character.skills(SkillName.Combat).level}."
+      else ""
+    val won = if outcome.won then s" The $name falls!" else ""
+    s"$yours$theirs$xp$levelUp$won"
+
+  private def describeDefeat(outcome: CombatOutcome, next: Character): String =
+    s" The ${outcome.opponent.name} fells you. You come to in the village on ${next.hp} HP."
+
+  private def describeGoDeeperCombat(outcome: DeeperCombatOutcome): String =
+    s"You step into the arena at depth ${outcome.level}, fully rested. ${outcome.turns} turns, +${outcome.fatigue} fatigue."
+
   // ============ VIEW HELPERS ============
 
   private def parseBatch(raw: String): Option[Int] =
@@ -503,6 +579,7 @@ object JanscapeApp:
       case Screen.Craft  => viewCraft(model, character)
       case Screen.Build  => viewBuild(model, character)
       case Screen.Forest => viewForest(model, character)
+      case Screen.Combat => viewCombat(model, character)
 
   private def card(title: String, description: String)(content: Html[Msg]*): Html[Msg] =
     div(cls := "w-full max-w-sm")(
@@ -615,6 +692,7 @@ object JanscapeApp:
             Button.primary("Mine", Msg.GoTo(Screen.Mine)),
             Button.secondary("Craft", Msg.GoTo(Screen.Craft)),
             Button.secondary("Forest", Msg.GoTo(Screen.Forest)),
+            Button.secondary("Combat", Msg.GoTo(Screen.Combat)),
             Button.secondary("Build", Msg.GoTo(Screen.Build)),
             Button.secondary("Options", Msg.ToggleOptions)
           )
@@ -982,6 +1060,85 @@ object JanscapeApp:
       )
     )
 
+  // ---- Combat ----
+
+  private def viewCombat(model: Model, character: Character): Html[Msg] =
+    val config = model.config
+    model.opponent match
+      case None =>
+        cardWithLeave(s"Arena ${character.combatLevel}", "", "Leave Arena")(
+          div(cls := "flex flex-col gap-4")(
+            viewSkills(character, config),
+            banner(model),
+            note(model),
+            hint("No fight in progress. Return to the village and step in again.")
+          )
+        )
+      case Some(opponent) =>
+        val maxHp    = config.combat.characterHp
+        val oppMaxHp = config.combat.opponents.get(opponent.name).map(_.hp).getOrElse(opponent.hp)
+        val won      = opponent.hp <= 0
+        val yourPct  = math.round(math.min(1.0, character.hp.toDouble / math.max(1, maxHp)) * 100).toInt
+        val oppPct   = math.round(math.min(1.0, opponent.hp.toDouble / math.max(1, oppMaxHp)) * 100).toInt
+        val yourChance =
+          math.round(Combat.yourHitChance(character, opponent, config) * 100).toInt
+        val oppChance =
+          math.round(Combat.opponentHitChance(character, opponent, config) * 100).toInt
+        cardWithLeave(
+          s"Arena ${character.combatLevel}",
+          s"${opponent.name.capitalize} · Combat ${opponent.combat} · ${opponent.damage} damage",
+          "Leave Arena"
+        )(
+          div(cls := "flex flex-col gap-4")(
+            viewSkills(character, config),
+            div(cls := "flex flex-col gap-3")(
+              hpBar("You", character.hp, maxHp, yourPct, "bg-emerald-500"),
+              hpBar(opponent.name.capitalize, opponent.hp, oppMaxHp, oppPct, "bg-red-500")
+            ),
+            if won then
+              div(cls := "flex flex-col gap-2")(
+                div(cls := "text-sm font-medium text-emerald-700")(
+                  text(s"The ${opponent.name} is down. The arena deepens when you are ready.")
+                ),
+                Button.primary(
+                  s"Go Deeper (${turnWord(config.combat.deeperTurns)})",
+                  Msg.GoDeeperCombat
+                )
+              )
+            else
+              div(cls := "flex flex-col gap-2")(
+                Button.primary("Attack", Msg.Attack),
+                Button.secondary("Escape", Msg.GoTo(Screen.Play))
+              ),
+            banner(model),
+            note(model),
+            hint(
+              s"Your Combat ${character.skills(SkillName.Combat).level} against its " +
+                s"${opponent.combat}: ${yourChance}% to hit, ${oppChance}% to be hit. A landed blow " +
+                "does your weapon's damage, give or take a little. Losing costs " +
+                s"${turnWord(config.combat.lossTurns)} and returns you to the village at " +
+                s"${math.round(config.combat.lossHpFraction * 100).toInt}% HP."
+            )
+          )
+        )
+
+  private def hpBar(
+      label: String,
+      current: Int,
+      max: Int,
+      percent: Int,
+      color: String
+  ): Html[Msg] =
+    div(cls := "flex flex-col gap-1")(
+      div(cls := "flex items-baseline justify-between gap-2")(
+        span(cls := "text-xs font-medium uppercase tracking-wide text-gray-500")(text(label)),
+        span(cls := "text-sm font-semibold tabular-nums")(text(s"$current / $max"))
+      ),
+      div(cls := "h-2 overflow-hidden rounded-full bg-gray-200")(
+        div(cls := s"h-2 rounded-full $color", attribute("style", s"width: $percent%"))()
+      )
+    )
+
   // ---- Skills ----
   // Compact on every screen: a 3-letter shortcut, the level and a thin progress bar. The full
   // details (name, XP, XP to the next level) surface on hover.
@@ -1045,6 +1202,8 @@ object JanscapeApp:
     val fatigueMax = config.play.fatigue.max
     val fatiguePct =
       math.min(100, math.round(character.fatigue * 100.0 / math.max(1, fatigueMax)).toInt)
+    val hpMax = config.combat.characterHp
+    val hpPct = math.min(100, math.round(character.hp * 100.0 / math.max(1, hpMax)).toInt)
     val clock = config.clock.at(character.turn)
     div(
       cls := "flex w-full max-w-sm items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2"
@@ -1056,19 +1215,37 @@ object JanscapeApp:
         )
       ),
       div(cls := "h-6 w-px shrink-0 bg-gray-200")(),
-      div(cls := "flex min-w-0 flex-1 flex-col gap-1")(
-        div(cls := "flex items-baseline justify-between gap-2")(
-          span(cls := "text-xs font-medium uppercase tracking-wide text-gray-500")(text("Fatigue")),
-          div(cls := "flex items-baseline gap-1")(
-            span(cls := "text-xl font-semibold tabular-nums")(text(character.fatigue.toString)),
-            span(cls := "text-xs text-gray-500")(text(s"/ $fatigueMax"))
+      div(cls := "flex min-w-0 flex-1 flex-col gap-2")(
+        div(cls := "flex flex-col gap-1")(
+          div(cls := "flex items-baseline justify-between gap-2")(
+            span(cls := "text-xs font-medium uppercase tracking-wide text-gray-500")(
+              text("Health")
+            ),
+            div(cls := "flex items-baseline gap-1")(
+              span(cls := "text-xl font-semibold tabular-nums")(text(character.hp.toString)),
+              span(cls := "text-xs text-gray-500")(text(s"/ $hpMax"))
+            )
+          ),
+          div(cls := "h-2 overflow-hidden rounded-full bg-gray-200")(
+            div(cls := "h-2 rounded-full bg-emerald-500", attribute("style", s"width: $hpPct%"))()
           )
         ),
-        div(cls := "h-2 overflow-hidden rounded-full bg-gray-200")(
-          div(
-            cls := "h-2 rounded-full bg-orange-400",
-            attribute("style", s"width: $fatiguePct%")
-          )()
+        div(cls := "flex flex-col gap-1")(
+          div(cls := "flex items-baseline justify-between gap-2")(
+            span(cls := "text-xs font-medium uppercase tracking-wide text-gray-500")(
+              text("Fatigue")
+            ),
+            div(cls := "flex items-baseline gap-1")(
+              span(cls := "text-xl font-semibold tabular-nums")(text(character.fatigue.toString)),
+              span(cls := "text-xs text-gray-500")(text(s"/ $fatigueMax"))
+            )
+          ),
+          div(cls := "h-2 overflow-hidden rounded-full bg-gray-200")(
+            div(
+              cls := "h-2 rounded-full bg-orange-400",
+              attribute("style", s"width: $fatiguePct%")
+            )()
+          )
         )
       )
     )

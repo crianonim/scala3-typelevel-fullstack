@@ -231,7 +231,7 @@ keep in sync.
 | `/dialog`     | `Dialog`      | `dialog/DialogApp.scala`                | Player **and** editor for dialogs built on the `common/dialog` model. Options carry conditions and action trees (`GoBack`, `GoDialog`, `Msg`, `Screept`, `Conditional`, `Block`). Supports `GameDefinition` JSON import/export. |
 | `/dialoggame` | `Dialog Game` | `dialoggame/DialogGameApp.scala`        | A larger, two-column re-implementation of the above: inline Screept editing, reordering actions, action-type switching, an environment inspector, a status line, and **localStorage** persistence (auto-save plus named saved games). |
 | `/shadcn`     | `Shadcn`      | `shadcn/ShadcnShowcase.scala` (+ 5 files) | A Scala/Tyrian port of the **shadcn/ui** component gallery. Uses the `oklch` CSS variables in `app/index.css` mapped into Tailwind via `tailwind.config.js`. Includes a light/dark toggle that flips a `.dark` class on the gallery root. |
-| `/janscape`   | `Janscape`    | `janscape/JanscapeApp.scala`            | A port of the janscape settlement game: menu/play/mine/craft/build/forest screens driven by the `common/.../janscape` model, with effectful rolls in `update` and localStorage autosave. |
+| `/janscape`   | `Janscape`    | `janscape/JanscapeApp.scala`            | A port of the janscape settlement game: menu/play/mine/craft/build/forest/combat screens driven by the `common/.../janscape` model, with effectful rolls in `update` and localStorage autosave. |
 | `/timeline-quiz` | `Timeline Quiz` | `timelinesquiz/TimelinesQuizApp.scala` | A port of the standalone Next.js timeline-quiz app. Pick a timeline, then guess which entries cover a random year: single tap, or **Overlap** mode for multi-select + Submit. Instant feedback banner with ~1.2 s auto-advance, a score footer, a faint debug toggle that forces a specific year, and an entries preview page. Pure logic and the embedded `uk_monarchs` CSV live in `common/shared/.../timelinesquiz`. |
 
 ### How the apps are related
@@ -302,8 +302,8 @@ day number and a wall-clock time next to the turn (e.g. `223 turns · Day 2, 21:
 - **`skills.xpPerLevelSquared`** `[10]` — the single constant of the XP curve, shared by every
   skill. Level is `floor(sqrt(xp / x)) + 1`, capped at 99, so each level costs
   `x * level²` *cumulative* XP: level 2 needs `10·1²=10`, level 3 needs `10·2²=40`, level 10 needs
-  1000. The three active skills are Mining and Forestry (gathering) and Smithing (crafting); Combat
-  exists in the save enum but nothing drives it yet.
+  1000. The four skills are Mining, Forestry (gathering), Smithing (crafting) and Combat (the
+  arena).
 
 #### `mining` — swinging, descending, depth factor, floors
 
@@ -383,13 +383,16 @@ Each recipe under **`crafting.recipes.<item>`** has:
 #### `equipment` — slots and tool power
 
 - **`equipment.slots.<slot>`** — one slot maps the items it accepts to the power they grant,
-  in the order swaps should be offered. Only two slots exist today: "Mining Tool" and "Forestry
-  Tool". A tool's *power* is what matters: equipped mining power is read from config at use time
-  (never stored on the save), so swapping tools changes what can be broken immediately and the two
-  can never drift. An empty slot grants no power.
-- Validation guarantees every starting item (the character begins with a stone pickaxe equipped)
-  has a slot that accepts it, an item belongs to at most one slot, and each slot has at least one
-  item.
+  in the order swaps should be offered. Three slots exist today: "Mining Tool", "Forestry Tool" and
+  "Weapon". A tool's *power* is what matters: equipped mining and forestry power is read from config
+  at use time (never stored on the save), so swapping tools changes what can be broken immediately
+  and the two can never drift. An empty slot grants no power. The "Weapon" slot maps its items to
+  damage instead (`stick 2, dagger 4, sword 6`, the character starting with a stick) and is read the
+  same way by the arena; there are no dagger/sword recipes yet, so the stick is the only weapon that
+  can be equipped by play.
+- Validation guarantees every starting item (the character begins with a stone pickaxe, a stone axe
+  and a stick equipped) has a slot that accepts it, an item belongs to at most one slot, and each
+  slot has at least one item.
 
 #### `building` — buildables
 
@@ -456,15 +459,48 @@ it has glade resources with yields, and the ladder is replaced by the path. It c
   only for `tiring` resources. At the shipped values an ash log (power 1) at depth parity tires
   1.75× as often as a stick, birch 2.5×, and oak 3.25×.
 
+#### `combat` — the arena (opponents, opposed hits, damage)
+
+The arena is the third depth system, but its difficulty is *opposed* rather than rolled: a fight is
+a sequence of exchanges — character first, then the opponent if it is still standing — until one HP
+pool empties. Winning opens the next depth, where the opponent's Combat climbs by one while its HP
+and damage stay fixed. An in-progress fight lives only in the app's model (the character's HP is the
+only part that is saved).
+
+- **`combat.characterHp`** `[20]` — the character's HP pool. The character is created at full and
+  the arena restores them to full when they go deeper; the save-format guard `MaxSaveHp` (100000)
+  exists only to reject nonsense from a hand-edited save.
+- **`combat.opponents.<name>`** — the opponents on offer, each with `combat`, `damage` and `hp`.
+  Only `wolf` ships (`combat 2, damage 4, hp 15`). `Combat.opponentFor(depth)` builds the one at a
+  depth from the first entry, adding `depth − 1` to its Combat.
+- **`combat.hitChance.base` / `perPoint` / `min` / `max`** `[0.5 / 0.1 / 0.1 / 0.9]` — the chance a
+  blow lands: `base + perPoint × (attacker Combat − defender Combat)`, clamped between `min` and
+  `max`. Even fighters meet at 50%, every point of advantage is 10%, and nothing is ever a certain
+  hit or miss. Rolls are on a 1-100 scale, so the clamped chance *is* the threshold the roll must
+  meet.
+- **`combat.damageVariance`** `[0.3]` — a landed blow's damage is the weapon's damage swung by up to
+  ±this fraction (drawn 0..1 and mapped to `1 + variance × (2·roll − 1)`), floored at 1. Applies to
+  both fighters; the opponent's "weapon" is its `damage`.
+- **`combat.deeperTurns` / `deeperFatigue`** `[20 / 1]` — the price of going one depth deeper on a
+  win; the character is healed to full and the next opponent is rolled.
+- **`combat.lossTurns` / `lossHpFraction`** `[30 / 0.5]` — what a loss costs: the turns spent and the
+  fraction of the pool the character comes back on (floored at 1 HP). A loss returns them to the
+  village rather than killing them.
+
+XP for a landed blow is `max(1, opponent Combat − your Combat + 2)`, deliberately a code constant
+(`Combat.XpBase`) rather than a knob, since it is the shape of the reward rather than its tuning.
+Attacking and escaping are both free; only losing and going deeper cost turns.
+
 #### What is deliberately *not* in the file
 
 Character creation values and save-format guards live in code: `MaxLevel` (99), `MaxSaveFatigue`
-(1000), `MaxInventoryBytes`, the "Mining Tool" and "Forestry Tool" slot names — including which
-slots are named. The starting loadout (stone pickaxe and stone axe equipped, an empty inventory)
-and both starting depths also live in code. Moving any of those into the JSON would let a save break
-the format that validates it, which is exactly the coupling the `play.fatigue.max` /
-`MaxSaveFatigue` split is meant to avoid. The file also cannot express agenda
-logic or UI text — those are code's job; this file exists to tune *numbers*, not prose.
+(1000), `MaxSaveHp` (100000), `MaxInventoryBytes`, the "Mining Tool", "Forestry Tool" and "Weapon"
+slot names — including which slots are named. The starting loadout (stone pickaxe, stone axe and
+stick equipped, an empty inventory) and all three starting depths also live in code. Moving any of
+those into the JSON would let a save break the format that validates it, which is exactly the
+coupling the `play.fatigue.max` / `MaxSaveFatigue` split is meant to avoid. The file also cannot
+express agenda logic or UI text — those are code's job; this file exists to tune *numbers*, not
+prose.
 
 ---
 

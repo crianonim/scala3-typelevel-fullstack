@@ -141,6 +141,11 @@
         "stone axe": 1,
         "copper axe": 2,
         "bronze axe": 3
+      },
+      "Weapon": {
+        "stick": 2,
+        "dagger": 4,
+        "sword": 6
       }
     }
   },
@@ -253,5 +258,26 @@
     "chop": {
       "fatigue": 1
     }
+  },
+  "combat": {
+    "characterHp": 20,
+    "opponents": {
+      "wolf": {
+        "combat": 2,
+        "damage": 4,
+        "hp": 15
+      }
+    },
+    "hitChance": {
+      "base": 0.5,
+      "perPoint": 0.1,
+      "min": 0.1,
+      "max": 0.9
+    },
+    "damageVariance": 0.3,
+    "deeperTurns": 20,
+    "deeperFatigue": 1,
+    "lossTurns": 30,
+    "lossHpFraction": 0.5
   }
 }
